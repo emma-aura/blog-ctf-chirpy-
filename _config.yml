@@ -26,8 +26,8 @@ description: >- # used by seo meta and the atom feed
 url: "https://emma-aura.github.io"
 
 # The base URL of your site
-# Note: laissé vide car GitHub Actions le détecte automatiquement
-baseurl: ""
+# Note: doit correspondre au nom du dépôt pour les project pages
+baseurl: "/blog-ctf-chirpy-"
 
 github:
   username: emma-aura
@@ -161,9 +161,6 @@ pwa:
       # - "/example"  # URLs match `<SITE_URL>/example/*` will not be cached by the PWA
 
 paginate: 10
-
-# The base URL of your site
-baseurl: ""
 
 # ------------ The following options are not recommended to be modified ------------------
 
