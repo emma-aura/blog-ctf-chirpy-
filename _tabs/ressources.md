@@ -48,6 +48,8 @@ order: 5
 | H4ckYou Blog | [https://h4ckyou.github.io/](https://h4ckyou.github.io/) | Blog CTF & cybersécurité offensive |
 | FoundHack | [https://foundhack.github.io/](https://foundhack.github.io/) | Blog CTF & hacking |
 | Stéphane Robert | [https://blog.stephane-robert.info/](https://blog.stephane-robert.info/) | Blog technique sur l'infrastructure, le cloud et la sécurité |
+| Writeup - Web Showcase | [https://web-showcase-inky.vercel.app/](https://web-showcase-inky.vercel.app/) | Writeup d'un aîné, ressource précieuse à conserver |
+| devl00p's infosec stuff | [https://devl00p.github.io/](https://devl00p.github.io/) | Blog de writeups CTF et exploitation binaire, source d'inspiration pour ce blog |
 
 ## 🤖 AI & Assistants
 
