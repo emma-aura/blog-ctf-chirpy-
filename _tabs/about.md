@@ -1,5 +1,5 @@
 ---
-title: À propos
+title: about
 icon: fas fa-info-circle
 order: 4
 ---
@@ -19,3 +19,28 @@ Ce blog, c'est l'endroit où je garde une trace de tout ça : mes writeups, mes 
 ---
 
 *Une certification récente à venir ici — stay tuned.*
+
+---
+
+## 🛠️ Compétences & Outils
+
+| Domaine | Compétences |
+|---|---|
+| **Reverse Engineering** | GDB, Ghidra, objdump, strings, ltrace, strace |
+| **Exploitation binaire** | pwntools, ROP, shellcoding, ASLR bypass |
+| **Systèmes** | Kali Linux, Bash, Zsh, Docker, SSH |
+| **CTF** | Pwn, Reverse, Forensics, Web, Crypto |
+| **Programmation** | Python, C, Assembleur (x86/x64) |
+| **Réseau** | Nmap, Wireshark, netcat, socat |
+
+---
+
+## 📬 Me retrouver
+
+- 🐙 **GitHub** : [github.com/emma-aura](https://github.com/emma-aura)
+- 💼 **LinkedIn** : [linkedin.com/in/emmanuel-houssou-672833306](https://www.linkedin.com/in/emmanuel-houssou-672833306/)
+- 📧 **Email** : `houssouemmanuel241@gmail.com`
+
+---
+
+*N'hésite pas à me contacter pour échanger sur la cybersécurité, le CTF, ou collaborer sur un projet !*
