@@ -14,6 +14,7 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | Reverse.zip | [https://reverse.zip/](https://reverse.zip/) | Plateforme complète de reverse engineering |
+| Dogbolt | [https://dogbolt.org/](https://dogbolt.org/) | Compare plusieurs décompilateurs (Ghidra, IDA, Binary Ninja...) sur un même binaire |
 
 ## 🏴 CTF & Wargames
 
@@ -27,6 +28,8 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | InternalAllTheThings - Reverse Shell | [https://swisskyrepo.github.io/InternalAllTheThings/cheatsheets/shell-reverse-cheatsheet/](https://swisskyrepo.github.io/InternalAllTheThings/cheatsheets/shell-reverse-cheatsheet/) | Cheatsheet exhaustif sur les reverse shells |
+| Pwntools | [https://docs.pwntools.com/en/stable/](https://docs.pwntools.com/en/stable/) | Documentation officielle de la librairie Python pour l'exploitation binaire |
+| Notes personnelles | [https://docs.google.com/document/d/1sAR8k_5TjMAmf-2dx3XhnY2zeDsvvAyxplw8o4RMXw4/edit?tab=t.0](https://docs.google.com/document/d/1sAR8k_5TjMAmf-2dx3XhnY2zeDsvvAyxplw8o4RMXw4/edit?tab=t.0) | Mes notes de travail et ressources compilées |
 
 ## 🎓 Formations & Tutoriels
 
