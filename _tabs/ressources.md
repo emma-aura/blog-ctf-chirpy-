@@ -47,6 +47,14 @@ order: 5
 |---|---|---|
 | Freebuff - Buffy | [https://freebuff.com](https://freebuff.com) | Assistant IA pour coder avec l'aide d'une IA généreuse |
 
+
+
+## 🤝 Communautés & Événements
+
+| Ressource | Lien | Description |
+|---|---|---|
+| Meetup | [https://www.meetup.com/home/](https://www.meetup.com/home/) | Trouver des meetups et événements tech dans sa région |
+
 ---
 
 *D'autres ressources seront ajoutées prochainement.*
