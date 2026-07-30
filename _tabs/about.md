@@ -18,10 +18,6 @@ Ce blog, c'est l'endroit où je garde une trace de tout ça : mes writeups, mes 
 
 ---
 
-*Une certification récente à venir ici — stay tuned.*
-
----
-
 ## 🛠️ Compétences & Outils
 
 | Domaine | Compétences |
