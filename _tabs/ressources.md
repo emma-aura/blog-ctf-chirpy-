@@ -47,6 +47,7 @@ order: 5
 |---|---|---|
 | H4ckYou Blog | [https://h4ckyou.github.io/](https://h4ckyou.github.io/) | Blog CTF & cybersécurité offensive |
 | FoundHack | [https://foundhack.github.io/](https://foundhack.github.io/) | Blog CTF & hacking |
+| Stéphane Robert | [https://blog.stephane-robert.info/](https://blog.stephane-robert.info/) | Blog technique sur l'infrastructure, le cloud et la sécurité |
 
 ## 🤖 AI & Assistants
 
