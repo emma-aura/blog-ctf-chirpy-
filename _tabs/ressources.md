@@ -22,6 +22,10 @@ order: 5
 |---|---|---|
 | OverTheWire - Bandit | [https://overthewire.org/wargames/bandit/](https://overthewire.org/wargames/bandit/) | Wargame Linux pour apprendre la sécurité UNIX |
 | CTFtime | [https://ctftime.org/](https://ctftime.org/) | Calendrier mondial des CTF, classements d'équipes et archives de write-ups |
+| Hack The Box | [https://www.hackthebox.com/](https://www.hackthebox.com/) | Plateforme de pentest avec machines et challenges variés |
+| TryHackMe | [https://tryhackme.com/](https://tryhackme.com/) | Apprentissage guidé en cybersécurité, du débutant à l'avancé |
+| picoCTF | [https://picoctf.org/](https://picoctf.org/) | CTF éducatif organisé par Carnegie Mellon University, idéal pour débuter |
+| Root-Me | [https://www.root-me.org/](https://www.root-me.org/) | Plateforme francophone de challenges en sécurité offensive |
 
 ## 📖 Documentation & Cheatsheets
 
