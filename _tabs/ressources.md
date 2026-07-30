@@ -27,6 +27,26 @@ order: 5
 |---|---|---|
 | InternalAllTheThings - Reverse Shell | [https://swisskyrepo.github.io/InternalAllTheThings/cheatsheets/shell-reverse-cheatsheet/](https://swisskyrepo.github.io/InternalAllTheThings/cheatsheets/shell-reverse-cheatsheet/) | Cheatsheet exhaustif sur les reverse shells |
 
+
+## 🎓 Formations & Tutoriels
+
+| Ressource | Lien | Description |
+|---|---|---|
+| Grafikart | [https://grafikart.fr/formations](https://grafikart.fr/formations) | Formations complètes en programmation (PHP, Python, JS, etc.) |
+
+## 🌐 Blogs & Veille
+
+| Ressource | Lien | Description |
+|---|---|---|
+| H4ckYou Blog | [https://h4ckyou.github.io/](https://h4ckyou.github.io/) | Blog CTF & cybersécurité offensive |
+| FoundHack | [https://foundhack.github.io/](https://foundhack.github.io/) | Blog CTF & hacking |
+
+## 🤖 AI & Assistants
+
+| Ressource | Lien | Description |
+|---|---|---|
+| Freebuff - Buffy | [https://freebuff.com](https://freebuff.com) | Assistant IA pour coder avec l'aide d'une IA généreuse |
+
 ---
 
 *D'autres ressources seront ajoutées prochainement.*
