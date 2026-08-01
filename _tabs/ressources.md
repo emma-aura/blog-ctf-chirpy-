@@ -40,6 +40,8 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | Grafikart | [https://grafikart.fr/formations](https://grafikart.fr/formations) | Formations complètes en programmation (PHP, Python, JS, etc.) |
+| OpenSecurityTraining2 | [https://p.ost2.fyi/courses](https://p.ost2.fyi/courses) | Formations gratuites en sécurité : reverse engineering, exploitation binaire, architecture CPU... |
+| The CTF Primer | [https://primer.picoctf.org/#_assembly](https://primer.picoctf.org/#_assembly) | Guide d'introduction au CTF (picoCTF) : shell, assembleur, exploitation binaire, crypto... |
 
 ## 🌐 Blogs & Veille
 
