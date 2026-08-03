@@ -9,12 +9,14 @@ order: 5
 
 ---
 
-## 🔬 Reverse Engineering
+## 🔬 Reverse Engineering & Malware
 
 | Ressource | Lien | Description |
 |---|---|---|
 | Reverse.zip | [https://reverse.zip/](https://reverse.zip/) | Plateforme complète de reverse engineering |
 | Dogbolt | [https://dogbolt.org/](https://dogbolt.org/) | Compare plusieurs décompilateurs (Ghidra, IDA, Binary Ninja...) sur un même binaire |
+| MalwareUnicorn Workshops | [https://malwareunicorn.org/#/workshops](https://malwareunicorn.org/#/workshops) | Ateliers de reverse engineering et d'analyse de malware par Amanda Rousseau (MalwareUnicorn), dont le célèbre « Reverse Engineering Malware 101 » |
+| OpenSecurityTraining2 | [https://p.ost2.fyi/courses](https://p.ost2.fyi/courses) | Formations gratuites en sécurité : reverse engineering, exploitation binaire, architecture CPU... |
 
 ## 🏴 CTF & Wargames
 
@@ -43,7 +45,6 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | Grafikart | [https://grafikart.fr/formations](https://grafikart.fr/formations) | Formations complètes en programmation (PHP, Python, JS, etc.) |
-| OpenSecurityTraining2 | [https://p.ost2.fyi/courses](https://p.ost2.fyi/courses) | Formations gratuites en sécurité : reverse engineering, exploitation binaire, architecture CPU... |
 | The CTF Primer | [https://primer.picoctf.org/#_assembly](https://primer.picoctf.org/#_assembly) | Guide d'introduction au CTF (picoCTF) : shell, assembleur, exploitation binaire, crypto... |
 
 ## 🌐 Blogs & Veille
@@ -55,6 +56,7 @@ order: 5
 | Stéphane Robert | [https://blog.stephane-robert.info/](https://blog.stephane-robert.info/) | Blog technique sur l'infrastructure, le cloud et la sécurité |
 | Writeup - Web Showcase | [https://web-showcase-inky.vercel.app/](https://web-showcase-inky.vercel.app/) | Writeup d'un aîné, ressource précieuse à conserver |
 | devl00p's infosec stuff | [https://devl00p.github.io/](https://devl00p.github.io/) | Blog de writeups CTF et exploitation binaire, source d'inspiration pour ce blog |
+| Kur0sh1r0's Portfolio | [https://kur0sh1r0.tech/](https://kur0sh1r0.tech/) | Portfolio de Fredmark Ivan "Kur0sh1ro" Dizon : security researcher, CTF player et bug bounty hunter, certifié HTB CPTS et membre d'A1SBERG — writeups CTF, projets offensive security et blog |
 
 ## 🤖 AI & Assistants
 

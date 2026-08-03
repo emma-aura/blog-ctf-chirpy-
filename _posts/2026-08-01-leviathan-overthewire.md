@@ -3,6 +3,9 @@ title: "Solution du Wargame Leviathan - OverTheWire"
 date: 2026-08-01 12:00:00 +0100
 categories: [CTF, Wargame]
 tags: [leviathan, reverse, ltrace, linux, overthewire]
+image:
+  path: /assets/img/posts/leviathan-cover.png
+  alt: Connexion SSH Leviathan OverTheWire
 ---
 
 ## Level 0
