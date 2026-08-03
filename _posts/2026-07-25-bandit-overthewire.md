@@ -170,6 +170,41 @@ bandit4@bandit:~/inhere$ cat ./-file07
 `ls -la`, `file ./*`, `cat`
 
 ---
+
+## 🔬 Pour aller plus loin : les magic bytes — comment `file` identifie un fichier
+
+### 🧠 L'idée derrière `file`
+
+Un fichier, au niveau du disque, n'est qu'une **suite d'octets**. Alors comment `file` sait-il qu'un fichier est du texte ASCII, une image ou une archive ? Réponse : il lit les **premiers octets** du fichier et les compare à une base de données de **signatures connues**, appelées *magic bytes* (octets magiques).
+
+| Format | Magic bytes (hex) | Lecture |
+|---|---|---|
+| ELF (binaire Linux) | `7f 45 4c 46` | `.ELF` |
+| PNG (image) | `89 50 4e 47` | `.PNG` |
+| gzip | `1f 8b` | — |
+| bzip2 | `42 5a 68` | `BZh` |
+| zip | `50 4b` | `PK` |
+| PDF | `25 50 44 46` | `%PDF` |
+
+### 🧪 Vérifier soi-même avec `xxd`
+
+On peut visualiser les magic bytes de n'importe quel fichier :
+
+```bash
+bandit4@bandit:~/inhere$ xxd ./-file07 | head -2
+00000000: 4163 6375 6d75 6c61 7469 6f6e 7320 6465  Accumulations de
+```
+
+- Le `41 63 63 75` = `A c c u` en ASCII → c'est bien du texte lisible, confirmant le verdict de `file`
+- Pour un PNG, on verrait `89 50 4e 47` au tout début
+
+### 📌 À retenir
+
+- `file` ne se fie **ni au nom ni à l'extension** : il lit les premiers octets (magic bytes)
+- En sécurité : un attaquant peut renommer n'importe quel binaire en `.txt` ou `.jpg` — l'extension ne prouve rien
+- `xxd` (ou `hexdump`) permet d'inspecter les octets à la main
+
+---
 ## Level 5 → Level 6
 
 **Objectif** : Le mot de passe se trouve dans un fichier caché parmi 20 sous-dossiers (`maybehere00` à `maybehere19`), avec des critères précis : le fichier fait exactement 1033 octets.
@@ -244,6 +279,45 @@ Bmnnvf82KzQlfxgAI2d1zYbr1u9pr3E3
 `find / -user X -group Y -size Zc`, `find / -user X -ls`, `| xargs cat`, redirection d'erreur `2>/dev/null`, `cat`
 
 ---
+
+## 🔬 Pour aller plus loin : pipes, redirections et descripteurs de fichiers
+
+### 🎫 Les trois flux standards
+
+Chaque programme Linux possède **3 flux** ouverts par défaut, identifiés par un numéro de descripteur de fichier :
+
+| Descripteur | Flux | Rôle | Symbole shell |
+|---|---|---|---|
+| `0` | `stdin` | Entrée (clavier, pipe...) | `<` |
+| `1` | `stdout` | Sortie normale | `>` ou `\|` (pipe) |
+| `2` | `stderr` | Sortie d'erreur | `2>` |
+
+- `2>/dev/null` : on **redirige** les erreurs vers `/dev/null`, le "trou noir" de Linux — indispensable avec `find /` qui génère des tonnes de *Permission denied*
+- `find ... | xargs cat` : le pipe (`|`) connecte la **sortie** d'un programme à l'**entrée** du suivant
+
+### 🔗 Pourquoi `xargs` existe ?
+
+`find` écrit des chemins sur sa sortie ; `cat` attend des **arguments**. Le pipe seul ne suffit pas : il faut convertir le texte de sortie en arguments de commande. C'est exactement le travail de `xargs` :
+
+```
+find / -user bandit7 ...   →   /var/lib/dpkg/info/bandit7.password
+        │                                │
+    (écrit sur stdout)            xargs transforme en argument
+                                        │
+                                        ▼
+                              cat /var/lib/dpkg/info/bandit7.password
+```
+
+- `xargs` découpe l'entrée aux espaces/retours à la ligne et en fait des arguments
+- Variantes utiles : `xargs -n 1` (un argument par commande), `xargs -0` (avec `find -print0` pour gérer les noms avec espaces)
+
+### 📌 À retenir
+
+- `0/1/2` = stdin / stdout / stderr ; `2>` redirige les erreurs, `> fichier` écrit dans un fichier
+- Le pipe `|` relie la sortie d'un programme à l'entrée d'un autre
+- `xargs` convertit du texte de sortie en arguments de commande — le pont entre `find` et `cat`
+
+---
 ## Level 7 → Level 8
 
 **Objectif** : Le mot de passe se trouve dans le fichier `data.txt`, à côté du mot **"millionth"**.
@@ -314,6 +388,41 @@ Ce résultat confirme visuellement qu'une seule ligne a un compteur à `1` (appa
 
 ### 🛠️ Commandes clés
 `sort data.txt | uniq -u`, `sort data.txt | uniq -c | sort -n`
+
+---
+
+## 🔬 Pour aller plus loin : pipelines texte — la philosophie Unix en action
+
+### 🧩 De petits outils qui s'assemblent
+
+`sort | uniq -u` n'est pas une astuce isolée : c'est un exemple de la **philosophie Unix** — des outils qui font *une* chose, bien, et qui se combinent par des pipes pour construire des traitements puissants.
+
+| Outil | Fait quoi | Exemple |
+|---|---|---|
+| `sort` | Trie les lignes | `sort data.txt` |
+| `uniq` | Supprime les doublons **adjacents** | `uniq -c` compte, `-u` isole les uniques |
+| `wc` | Compte lignes/mots/octets | `wc -l data.txt` |
+| `head`/`tail` | Premières/dernières lignes | `head -5 data.txt` |
+| `cut` | Extrait des colonnes | `cut -d' ' -f1` |
+
+### ⚠️ Le piège classique : `uniq` sans `sort`
+
+`uniq` ne détecte les doublons que sur des lignes **consécutives** :
+
+```
+Entrée :     A  A  B  A
+
+uniq seul :  A  B  A      → les A sont séparés par B, le doublon n'est PAS vu
+après sort : A  A  A  B   → les A sont côte à côte, uniq les regroupe
+```
+
+C'est pourquoi on **trie d'abord** : après `sort`, les doublons sont côte à côte et `uniq` peut les regrouper. `sort | uniq` est la combinaison canonique — l'ordre des outils a un sens !
+
+### 📌 À retenir
+
+- La philosophie Unix : des mini-outils spécialisés reliés par des pipes
+- `uniq` ne marche que sur des lignes adjacentes → toujours `sort | uniq`
+- `sort | uniq -c | sort -n` = compter les occurrences et les classer — un motif très réutilisable
 
 ---
 ## Level 9 → Level 10
@@ -407,6 +516,37 @@ The password is pYfOY6HwUsDj5rL9UvyhU7MCmv8vN5Ro
 `cat fichier | base64 -d`
 
 ---
+
+## 🔬 Pour aller plus loin : le base64 en profondeur
+
+### 🧮 Pourquoi 64 ?
+
+Le base64 encode des données binaires en texte imprimable. Il utilise **64 caractères** (A-Z, a-z, 0-9, `+`, `/`) parce que 64 = 2⁶ : chaque caractère transporte **6 bits** d'information.
+
+### 🔀 Le mécanisme, étape par étape
+
+3 octets (3 × 8 = 24 bits) → 4 caractères base64 (4 × 6 = 24 bits) :
+
+```
+Octets :    01001000  01101001  00100001     (48 69 21 = "Hi!")
+Découpage : 010010 000110 100100 100001      (6 bits chacun)
+Valeurs :   18      6       36      33
+Alphabet :  S      G       k       h
+```
+
+`base64` découpe le flux en paquets de 6 bits et remplace chaque paquet par le caractère correspondant. C'est un **encodage**, pas un chiffrement : **réversible sans clé**.
+
+### ⚠️ Le piège des `=`
+
+Si la longueur n'est pas un multiple de 3, on ajoute du **padding** `=` pour compléter : c'est pour ça qu'une chaîne base64 finit souvent par `=` ou `==` — un indice visuel précieux pour reconnaître l'encodage !
+
+### 📌 À retenir
+
+- Base64 = 6 bits par caractère, 3 octets → 4 caractères
+- Encodage ≠ chiffrement : `base64 -d` décodera toujours sans clé
+- Reconnaître : alphabet A-Za-z0-9+/ et padding `=` en fin de chaîne
+
+---
 ## Level 11 → Level 12
 
 **Objectif** : Le mot de passe est chiffré avec ROT13 dans le fichier `data.txt`.
@@ -435,6 +575,33 @@ The password is GROozWPO8QyN0mGrjUkID0WCYkZiQxrN
 
 ### 🛠️ Commandes clés
 `cat`, `tr 'N-ZA-Mn-za-m' 'A-Za-z'` (ou tout outil dédié type `rot13`)
+
+---
+
+## 🔬 Pour aller plus loin : ROT13 et les chiffrements par substitution
+
+### 🔄 Pourquoi 13 ?
+
+ROT13 décale chaque lettre de 13 positions dans l'alphabet. Comme l'alphabet a 26 lettres, appliquer ROT13 **deux fois** retombe sur le texte original : `A → N → A`. Le chiffrement ET le déchiffrement sont donc la même opération — c'est une *involution*.
+
+### 🗺️ La famille des chiffrements de César
+
+ROT13 est un cas particulier du **chiffre de César** (décalage de N positions), lui-même un **chiffrement par substitution mono-alphabétique** : chaque lettre est remplacée par une seule autre lettre.
+
+```
+Alphabet normal :  A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+ROT13            :  N O P Q R S T U V W X Y Z A B C D E F G H I J K L M
+```
+
+### 💥 Pourquoi c'est faible : l'analyse de fréquence
+
+Dans toute langue, les lettres n'apparaissent pas avec la même fréquence (en français : `e` ≈ 15 %, `a` ≈ 8 %...). Un chiffrement par substitution **conserve ces fréquences** : en comptant les lettres du texte chiffré, on devine les correspondances. C'est l'**analyse de fréquence**, la plus vieille méthode de cryptanalyse.
+
+### 📌 À retenir
+
+- ROT13 = décalage de 13, involution (deux fois = rien)
+- `tr` substitue des caractères un par un : parfait pour un César
+- Les chiffrements par substitution simple sont cassables par analyse de fréquence → jamais de vraie sécurité
 
 ---
 ## Level 12 → Level 13
@@ -538,6 +705,51 @@ The password is qQYQiHOBPR8zR61qxYqX45quvihF2uzk
 `xxd -r`, `file`, `gzip -d`, `bzip2 -d`, `tar xvf`, `mv`
 
 ---
+
+## 🔬 Pour aller plus loin : hexdump, magic bytes et formats de compression
+
+### 🧾 Le format `xxd`
+
+Un dump `xxd` affiche trois zones par ligne : l'**adresse** (offset en hexadécimal), les **octets** en hexadécimal, puis la même ligne en **ASCII lisible** :
+
+```
+00000000: 1f8b 0808 b2f0 3b6a 0203 6461 7461 322e  ......;j..data2.
+└ adresse ┘ └────────── octets (hex) ─────────┘ └── ASCII ──┘
+```
+
+`xxd -r` (revert) fait l'opération **inverse** : repartir du texte hexadécimal pour reconstruire les octets binaires.
+
+### 🧊 Les signatures de compression
+
+Chaque format de compression commence par des magic bytes reconnaissables — c'est ainsi que `file` les identifie :
+
+| Format | Magic bytes | Outil |
+|---|---|---|
+| gzip | `1f 8b` | `gzip -d` |
+| bzip2 | `42 5a 68` (`BZh`) | `bzip2 -d` |
+| zip | `50 4b` (`PK`) | `unzip` |
+| tar | pas de magic, en-tête ASCII | `tar xvf` |
+
+### 🧅 La méthode générale : éplucher les couches
+
+Le schéma gagnant face à un fichier inconnu :
+
+```
+1. file fichier        → identifier le type réel
+2. outil adapté        → décompresser / extraire
+3. file résultat       → re-identifier
+4. répéter jusqu'au texte clair
+```
+
+C'est exactement la démarche de ce niveau — et celle du forensics en général : ne jamais se fier à l'extension, toujours laisser `file` guider.
+
+### 📌 À retenir
+
+- `xxd` = vue hexadécimale + ASCII ; `xxd -r` = reconstruire le binaire
+- Magic bytes : gzip `1f8b`, bzip2 `BZh`, zip `PK`
+- Boucle `file` → extraire → `file` : la méthode universelle du forensic
+
+---
 ## Level 13 → Level 14
 
 **Objectif** : Une clé SSH privée est fournie directement dans le répertoire personnel — il faut l'utiliser pour s'authentifier sur le compte suivant, sans mot de passe.
@@ -609,6 +821,37 @@ aaWecNkG4FhxJQxz07uiwzVP6bJiYS65
 `scp -P port user@host:fichier destination`, `nano` (copier-coller manuel), `chmod 600 fichier`, `ssh -i clé_privée user@host -p port`
 
 ---
+
+## 🔬 Pour aller plus loin : la cryptographie asymétrique en 2 minutes
+
+### 🗝️ Deux clés, une seule privée
+
+L'authentification par clé SSH repose sur la **cryptographie asymétrique** : une paire de clés mathématiquement liées.
+
+| Clé | Rôle | Diffusion |
+|---|---|---|
+| **Publique** | Chiffrer / vérifier | Libre, tout le monde peut la connaître |
+| **Privée** | Déchiffrer / prouver son identité | **Secrète**, jamais partagée |
+
+Ce qui est chiffré avec la clé publique ne peut être déchiffré qu'avec la clé privée (et inversement pour les signatures).
+
+### 🔐 Pourquoi c'est magique (et sûr)
+
+- Le serveur garde ta **clé publique** ; toi seul possèdes ta **clé privée**
+- À la connexion, le serveur te lance un **défi** que seule ta clé privée peut résoudre → tu prouves ton identité **sans jamais envoyer la clé privée** sur le réseau
+- C'est le principe des défis-réponses, au cœur de TLS aussi (on y revient au Level 15)
+
+### 🔒 Pourquoi `chmod 600` est obligatoire
+
+SSH **refuse** une clé privée lisible par d'autres (`UNPROTECTED PRIVATE KEY FILE`) : si un autre utilisateur peut la lire, il peut s'authentifier à ta place. `600` = lecture/écriture pour le propriétaire uniquement — le **moindre privilège** appliqué aux fichiers.
+
+### 📌 À retenir
+
+- Paire clé publique/privée : la privée ne quitte jamais ta machine
+- `ssh -i` = se présenter avec une clé privée au lieu d'un mot de passe
+- Toujours `chmod 600` une clé privée avant de l'utiliser
+
+---
 ## Level 14 → Level 15
 
 **Objectif** : Le mot de passe du niveau suivant est déjà connu (celui du niveau 14, obtenu à l'étape précédente), mais il faut l'envoyer à un service en écoute sur le **port 30000** en local, pour recevoir en retour le mot de passe du niveau 15.
@@ -636,6 +879,34 @@ pbLYuZtTg4MgaqfJx8jbA9gKKGqM68A7
 
 ### 🛠️ Commandes clés
 `echo "texte" | nc host port`
+
+---
+
+## 🔬 Pour aller plus loin : les sockets TCP — ce que fait vraiment `nc`
+
+### 🏗️ Le modèle client-serveur
+
+`nc` est un client **TCP/IP** brut : il ouvre une connexion vers une adresse et un port, exactement comme ton navigateur le fait avec un serveur web — mais sans protocole par-dessus.
+
+```
+Client (nc)              Serveur (port 30000)
+    │  ─── SYN ─────────▶  │
+    │  ◀── SYN-ACK ──────  │
+    │  ─── ACK ─────────▶  │   ← triple handshake TCP
+    │                      │
+    │  ── données ───────▶  │
+    │  ◀── réponse ───────  │
+```
+
+### 🔢 À quoi servent les ports ?
+
+Une machine peut héberger des **milliers de services** en même temps. Chaque service écoute sur un **port** (nombre de 1 à 65535) : `22` SSH, `80` HTTP, `30000` ici. L'adresse IP trouve la machine, le port trouve le service.
+
+### 📌 À retenir
+
+- `nc hôte port` = client TCP minimal : connecte-toi et échange des données brutes
+- Le triple handshake (SYN/SYN-ACK/ACK) établit la connexion avant tout échange
+- Un port = une porte d'entrée vers un service ; scanner les ports = découvrir les portes
 
 ---
 ## Level 15 → Level 16
@@ -666,6 +937,36 @@ kS0Hf0u5HiXFwKMKFqXvPdOTNGGa0X8V
 
 ### 🛠️ Commandes clés
 `openssl s_client -connect host:port`
+
+---
+
+## 🔬 Pour aller plus loin : TLS — la couche de chiffrement du web
+
+### 🎭 Clair vs chiffré
+
+Au niveau précédent, `nc` envoyait le mot de passe **en clair** : n'importe qui sur le réseau pouvait l'intercepter. TLS (Transport Layer Security) ajoute une couche de chiffrement : les données deviennent illisibles pour un observateur.
+
+```
+HTTP   = données en clair  →  tout le monde peut lire
+HTTPS  = données via TLS   →  seul le serveur peut lire
+```
+
+### 🤝 Le handshake TLS en 4 temps
+
+1. Le client dit "bonjour, voici les algorithmes que je connais"
+2. Le serveur répond avec son **certificat** (clé publique + identité)
+3. Les deux parties s'accordent sur une **clé de session** secrète (grâce à la cryptographie asymétrique du Level 13 !)
+4. Toutes les données suivantes sont chiffrées avec cette clé de session (symétrique, rapide)
+
+### ⚠️ Le certificat auto-signé
+
+Le serveur de Bandit présente un certificat **auto-signé** : personne d'officiel ne garantit son identité → avertissement. En test, on continue ; dans la vraie vie, c'est un **signal d'alerte** (risque d'homme du milieu).
+
+### 📌 À retenir
+
+- TLS = chiffrement de bout en bout, utilisé par HTTPS, SSH, emails...
+- Le handshake échange d'abord des clés (asymétrique) puis chiffre vite (symétrique)
+- `openssl s_client` : le client TLS manuel pour tester/interagir avec un service chiffré
 
 ---
 ## Level 16 → Level 17
@@ -759,6 +1060,39 @@ ssh -i sshkey_bandit17.private bandit17@bandit.labs.overthewire.org -p 2220
 `nmap -sV -p<plage> --open -T5 host`, `openssl s_client -connect host:port -ign_eof`, `ncat --ssl host port`, `chmod 600`, `ssh -i`
 
 ---
+
+## 🔬 Pour aller plus loin : nmap — les techniques de scan
+
+### 🎯 Les trois phases d'un scan
+
+nmap ne se contente pas d'ouvrir des connexions : il orchestre une véritable reconnaissance en plusieurs étapes :
+
+1. **Découverte d'hôtes** (ping sweep) : qui est en ligne ?
+2. **Scan de ports** : quels ports sont ouverts ?
+3. **Détection de services/versions** (`-sV`) : qu'est-ce qui tourne dessus ?
+
+### 🔌 Les grands types de scan
+
+| Option | Nom | Principe |
+|---|---|---|
+| `-sS` | SYN scan (stealth) | Envoie juste un SYN, observe la réponse — ne complète jamais la connexion |
+| `-sT` | Connect scan | Connexion TCP complète (plus visible dans les logs) |
+| `-sU` | UDP scan | Scan des services UDP |
+| `-sV` | Version detection | *Banner grabbing* + empreintes pour identifier précisément le service |
+
+### 🧠 Pourquoi `--open` et `-T5` ?
+
+- `--open` : ne montre que les ports ouverts (filtre le bruit des ports fermés/filtrés)
+- `-T5` : *template de timing* — de `-T0` (paranoïaque, très lent) à `-T5` (insane). Chaque template ajuste les délais entre paquets, donc la vitesse ET la discrétion
+- `-p` : plage de ports (`-p31000-32000` ou `-p-` pour tout scanner)
+
+### 📌 À retenir
+
+- `nmap -sV -p<plage> --open host` : le combo reconnaissance standard
+- SYN scan = furtif (connexion jamais complétée) ; connect scan = bavard
+- `-T` contrôle la vitesse : plus c'est lent, plus c'est discret — et plus c'est toléré par les IDS
+
+---
 ## Level 17 → Level 18
 
 **Objectif** : Dans le répertoire personnel, deux fichiers sont présents : `passwords.old` et `passwords.new`. La ligne qui **a changé** entre les deux dans `passwords.new` est le mot de passe du niveau suivant.
@@ -780,6 +1114,40 @@ bandit17@bandit:~$ diff passwords.old passwords.new
 
 ### 🛠️ Commandes clés
 `diff fichier1 fichier2`
+
+---
+
+## 🔬 Pour aller plus loin : `diff` — comparer pour trouver la différence
+
+### 🧩 Décoder la sortie de `diff`
+
+`diff` affiche les différences ligne par ligne, avec des marqueurs :
+
+```
+42c42
+< 09LJK5b0qSg3lyERWxQ9bX54xM5o5Umk
+---
+> OQxXZjELndr90zuhOTDYBEomI0SZITXI
+```
+
+- `42c42` : à la ligne 42, un **changement** (`c` pour *change*) entre la ligne 42 du fichier 1 et la ligne 42 du fichier 2
+- `<` = contenu du **premier** fichier ; `>` = contenu du **second**
+- Les lettres : `a` = ajout (*add*), `d` = suppression (*delete*), `c` = changement (*change*)
+
+### 🔄 Les variantes utiles
+
+| Option | Effet |
+|---|---|
+| `diff -u f1 f2` | Format **unifié** (celui des patches), avec du contexte |
+| `diff -r d1 d2` | Compare deux dossiers **récursivement** |
+| `diff -q f1 f2` | Mode silencieux : répond juste « identiques » ou « différents » |
+| `git diff` | L'équivalent Git — on y revient au Level 28 |
+
+### 📌 À retenir
+
+- `<` = premier fichier, `>` = second fichier ; `a`/`d`/`c` = ajout/suppression/changement
+- `diff -u` produit un patch directement applicable avec `patch`
+- `diff -r` compare des arborescences entières — indispensable en audit de configuration
 
 ---
 ## Level 18 → Level 19
@@ -816,6 +1184,39 @@ ssh -t -p 2220 bandit18@bandit.labs.overthewire.org /bin/bash
 `ssh user@host "commande"`, `ssh -t user@host /bin/bash`
 
 ---
+
+## 🔬 Pour aller plus loin : SSH non-interactif — exécuter sans shell
+
+### 🖥️ SSH fait toujours deux choses
+
+Quand tu tapes `ssh user@host`, deux mécanismes distincts s'enchaînent :
+
+1. **L'authentification** : prouver qui tu es (mot de passe ou clé)
+2. **L'exécution** : lancer ta commande ou ton shell sur la machine distante
+
+### 🎯 La commande en argument
+
+`ssh user@host "commande"` saute l'étape du shell interactif : le serveur exécute la commande via un **shell non-interactif** (`sh -c "commande"`) et renvoie sa sortie. C'est la base de tout scripting d'administration :
+
+```bash
+ssh -p 2220 bandit18@bandit "cat ~/readme"   # une commande, un résultat
+ssh host "uname -a && whoami"                # plusieurs commandes enchaînées
+ssh host 'echo $HOSTNAME'                     # attention aux guillemets !
+```
+
+- Les **guillemets simples** empêchent l'expansion locale ; les **doubles** l'autorisent. Ici, on veut que `$HOSTNAME` soit évalué **côté serveur** → guillemets simples
+
+### 🕳️ Pourquoi ça contourne le blocage ?
+
+Le `ByeBye !` vient du shell de connexion configuré dans `/etc/passwd` (ou `.bashrc`). Mais `ssh host commande` **n'ouvre pas ce shell interactif** : il exécute la commande directement. Le message de fermeture n'a pas le temps de s'afficher.
+
+### 📌 À retenir
+
+- `ssh host "cmd"` = exécution non-interactive, la sortie revient sur ton terminal
+- Guillemets simples = évaluation côté serveur ; doubles = expansion côté client
+- Un shell de connexion « piégé » ne bloque pas l'exécution de commandes simples
+
+---
 ## Level 19 → Level 20
 
 **Objectif** : Un binaire setuid nommé `bandit20-do` est présent dans le répertoire personnel. Il permet d'exécuter des commandes **en tant que l'utilisateur bandit20**.
@@ -843,6 +1244,38 @@ bandit19@bandit:~$ ./bandit20-do cat /etc/bandit_pass/bandit20
 
 ### 🛠️ Commandes clés
 `./binaire commande`, `find / -perm -4000`
+
+---
+
+## 🔬 Pour aller plus loin : le bit SUID en profondeur
+
+### 🧬 Lire les permissions : `-rwsr-x---`
+
+Le `s` à la place du `x` du propriétaire = bit **setuid** (Set User ID). Un binaire setuid s'exécute avec les droits de son **propriétaire**, pas ceux de la personne qui le lance. C'est ce qui permet à `passwd` de modifier `/etc/shadow` sans que toi tu y aies accès.
+
+```
+-rwsr-x--- 1 bandit20 bandit19 ... bandit20-do
+ │││
+ └┴┴─ s = setuid → tourne en tant que bandit20
+```
+
+### 🕵️ Comment les repérer
+
+```bash
+bandit19@bandit:~$ find / -perm -4000 2>/dev/null
+```
+
+`-4000` = le bit setuid (4000 en octal). En pentest, lister les binaires setuid est une **étape systématique** : chaque binaire setuid est une porte potentielle vers les droits d'un autre utilisateur.
+
+### ⚠️ Le danger
+
+Un binaire setuid mal écrit (exécution de commandes avec entrées utilisateur non vérifiées, chemins relatifs, variables d'environnement manipulables...) peut permettre une **escalade de privilèges** — passer de `bandit19` à `bandit20`, voire à `root`. C'est l'un des vecteurs d'attaque les plus classiques sur Linux (voir aussi les levels Leviathan 1→2 et 2→3 qui creusent ce sujet).
+
+### 📌 À retenir
+
+- SUID (`s`) = le programme agit avec les droits de son propriétaire
+- `find / -perm -4000` = repérer les binaires setuid d'un système
+- Chaque binaire setuid = surface d'attaque potentielle pour l'escalade de privilèges
 
 ---
 ## Level 20 → Level 21
@@ -873,6 +1306,43 @@ bW9kBv5WC3P4yoDyf12LSdGuNz5ka6hY
 
 ### 🛠️ Commandes clés
 `echo "data" | nc -l -p port`, background (`&`)
+
+---
+
+## 🔬 Pour aller plus loin : écouter, attendre, répondre — le rôle du serveur
+
+### 🎙️ `nc -l` : passer du client au serveur
+
+Jusqu'ici, `nc` était un **client** : il se connectait à un service existant. Avec `-l` (*listen*), `nc` devient **serveur** : il écoute sur un port et attend une connexion entrante.
+
+```bash
+bandit20@bandit:~$ echo "4pIjcunZ0fK2vmp3IwfG8Vf7VhxD6pOA" | nc -l -p 1234 &
+```
+
+- `-l` : mode écoute (serveur)
+- `-p PORT` : le port à écouter
+- `&` : lance la commande **en arrière-plan** (background) pour réutiliser le terminal
+- Le `echo |` fournit les données que `nc` enverra **dès que** quelqu'un se connectera
+
+### 🔄 Le dialogue complet
+
+```
+   Terminal 1 (serveur)                Terminal 2 (client)
+   nc -l -p 1234 &                     ./suconnect 1234
+   ── écoute sur 1234 ───────────────▶   ── se connecte ──▶
+   ◀──────── envoie le mot de passe ────
+   ──────── reçoit le prochain ────────▶
+```
+
+### ⚠️ Pourquoi `&` est utile
+
+Sans `&`, le terminal 1 resterait **bloqué** sur l'écoute. En arrière-plan, on peut lancer le client (`suconnect`) depuis le même terminal — ou utiliser deux terminaux séparés. C'est la base du travail avec les sockets : un processus écoute, un autre parle.
+
+### 📌 À retenir
+
+- `nc -l` = mode serveur (écoute) ; `nc` seul = mode client
+- `&` = exécution en arrière-plan pour ne pas bloquer le terminal
+- `echo | nc -l` envoie les données dès qu'une connexion arrive
 
 ---
 ## Level 21 → Level 22
@@ -921,6 +1391,49 @@ RYVux2rHEm9tiXHmLFzuR7Vhx6AZQMEz
 `cat /etc/cron.d/*`, `cat /usr/bin/cronjob_*.sh`
 
 ---
+
+## 🔬 Pour aller plus loin : cron — l'ordonnanceur de tâches
+
+### 🗓️ Le format des 5 champs
+
+Une ligne cron classique :
+
+```
+* * * * *  commande
+│ │ │ │ │
+│ │ │ │ └── jour de la semaine (0-7, 0 = dimanche)
+│ │ │ └──── mois (1-12)
+│ │ └────── jour du mois (1-31)
+│ └──────── heure (0-23)
+└────────── minute (0-59)
+```
+
+- `*` = « tous les »… (`* * * * *` = toutes les minutes)
+- `*/5` = toutes les 5 unités ; `1,15` = les 1 et 15 ; `9-17` = de 9h à 17h
+- `@reboot`, `@daily`, `@hourly` : raccourcis pratiques
+
+### 📂 Où vivent les crons ?
+
+| Emplacement | Usage |
+|---|---|
+| `/etc/crontab` | Cron système (avec l'utilisateur en 6e champ) |
+| `/etc/cron.d/` | Fichiers de cron système par programme |
+| `/etc/cron.hourly|daily|weekly|monthly/` | Scripts exécutés périodiquement |
+| `crontab -e` | Cron de l'utilisateur courant |
+
+### 🕵️ Le côté sécurité
+
+- Un cron tourne **avec les droits de l'utilisateur** listé en 6e champ (`bandit22` dans notre cas)
+- Les scripts cron sont des **cibles de choix** en audit : un script modifiable par un tiers = exécution de code arbitraire avec les droits du propriétaire
+- C'est exactement le sujet des Levels 22-24 !
+
+### 📌 À retenir
+
+- 5 champs : minute, heure, jour du mois, mois, jour de la semaine
+- `* * * * *` = toutes les minutes ; `@reboot` = au démarrage
+- Un cron s'exécute avec les droits de son utilisateur — surface d'attaque classique en escalade de privilèges
+
+---
 ## Level 22 → Level 23
 
 **Objectif** : Un autre cron job, cette fois pour `bandit23`. Le script utilise le nom d'utilisateur pour générer un nom de fichier temporaire via un hash MD5 (faible).
@@ -960,6 +1473,37 @@ gKXDTAXnIz3OBxiPjRZ2uqutUlPZrBsw
 
 ### 🛠️ Commandes clés
 `md5sum`, `cut -d ' ' -f 1`, `echo texte | md5sum`
+
+---
+
+## 🔬 Pour aller plus loin : les fonctions de hachage
+
+### 🧮 Qu'est-ce qu'un hash ?
+
+Une fonction de hachage transforme des données de taille quelconque en une **empreinte de taille fixe** (32 hexadécimaux pour MD5 = 128 bits) :
+
+```
+echo "I am user bandit23" | md5sum  →  8ca319486bfbbc3663ea0fbe81326349
+```
+
+Propriétés clés :
+- **Déterministe** : même entrée → même empreinte, toujours
+- **Sens unique** : impossible de retrouver l'entrée depuis l'empreinte
+- **Avalanche** : changer un seul caractère change tout l'empreinte
+
+### 🔓 Pourquoi ce niveau est une mauvaise pratique
+
+Le script "cache" le nom du fichier en hachant `I am user bandit23`. Mais le hash est **déterministe et calculable par n'importe qui** : il suffit de refaire le calcul pour retrouver le nom. C'est de la **sécurité par l'obscurité** — cacher la *localisation* d'un secret, pas le protéger. Un secret vraiment protégé repose sur une clé ou des permissions, pas sur un nom de fichier devinable.
+
+### ⚠️ MD5 en particulier
+
+MD5 est aujourd'hui **cassé** (collisions trouvées dès 2004) : on n'utilise plus que SHA-256/512 ou bcrypt/argon2 pour les mots de passe. En CTF, retenir que MD5 est reconnaissable à sa longueur : 32 caractères hexadécimaux.
+
+### 📌 À retenir
+
+- Hash = empreinte déterministe, sens unique, sensible à l'avalanche
+- Cacher un fichier avec un hash prévisible = sécurité par l'obscurité (faible)
+- MD5 = 32 hexa, obsolète ; SHA-256 = 64 hexa, la référence actuelle
 
 ---
 ## Level 23 → Level 24
@@ -1016,6 +1560,46 @@ hVQMk3lJNsmQ7VF3ubyrNNBom7BOgVXv
 `cat > fichier << 'EOF'`, `chmod +x`, `stat -c "%U"`
 
 ---
+
+## 🔬 Pour aller plus loin : l'injection de script cron — escalade automatique
+
+### 🧬 Le scénario d'attaque
+
+```
+cron (bandit24) ── toutes les minutes ──▶ exécute les .sh de /var/spool/bandit24/
+                                                │
+                                     (vérifie owner = bandit23)
+                                                │
+                                                ▼
+                              notre script s'exécute EN TANT QUE bandit24
+```
+
+Le cron job tourne avec les droits de `bandit24` et exécute nos scripts. C'est une **exécution de code en tant qu'un autre utilisateur** — la définition même de l'escalade de privilèges.
+
+### 📜 Le `cat > fichier << 'EOF'` décortiqué
+
+```bash
+cat > /var/spool/bandit24/script.sh << 'EOF'
+#!/bin/bash
+cat /etc/bandit_pass/bandit24 > /tmp/bandit24_pwd
+EOF
+```
+
+- `cat > fichier` : écrit dans un fichier au lieu d'afficher à l'écran
+- `<< 'EOF'` : **heredoc** — tout ce qui suit jusqu'à la ligne `EOF` est envoyé à `cat`
+- Les **guillemets autour d'EOF** empêchent toute expansion de variables : le contenu est littéral
+
+### ⚠️ Les protections (et leurs limites)
+
+Le script vérifie `stat -c "%U"` (le propriétaire du fichier). Notre script appartient bien à `bandit23` → il passe. La leçon : vérifier le propriétaire ne suffit pas si le dossier est accessible en écriture à un tiers — un dossier spool où n'importe qui peut déposer un script exécuté par un autre compte est une porte ouverte.
+
+### 📌 À retenir
+
+- Cron + dossier inscriptible = exécution de code avec les droits du cron
+- `cat > f << 'EOF' ... EOF` : créer proprement un fichier multi-lignes
+- `stat -c "%U"` : vérifier le propriétaire — utile et nécessaire, mais pas suffisant
+
+---
 ## Level 24 → Level 25
 
 **Objectif** : Un service écoute sur le port 30002. Quand on lui envoie le mot de passe actuel suivi d'un code PIN à 4 chiffres, il répond avec le mot de passe de `bandit25` si le code est correct.
@@ -1049,6 +1633,33 @@ The password of user bandit25 is SoHfqMOEqIX2IYKVciZxvgpR9a2Djx4P
 
 ### 🛠️ Commandes clés
 `nc host port`, `for i in {0000..9999}`, `| grep -v "motif"`
+
+---
+
+## 🔬 Pour aller plus loin : bruteforce & expansion d'accolades
+
+### 🧮 L'espace de recherche
+
+Un code PIN à 4 chiffres a `10⁴ = 10 000` combinaisons (0000 à 9999). Contre un service local, toutes se testent en **quelques secondes** — c'est le principe du **bruteforce** : épuiser l'espace de recherche.
+
+### 🐚 L'expansion d'accolades de bash
+
+```bash
+bandit24@bandit:~$ echo {0000..0005}
+0000 0001 0002 0003 0004 0005
+```
+
+`{0000..9999}` est une **expansion d'accolades** : bash génère lui-même la liste complète. Le zéro de tête (`0000` et pas `0`) force le format 4 chiffres attendu par le service.
+
+### 🎯 Pourquoi `grep -v "Wrong"`
+
+Le service répond `Wrong!` pour 9 999 codes sur 10 000. `grep -v "Wrong"` **inverse** le filtre : il ne garde que les lignes qui ne contiennent pas `Wrong` — donc uniquement la réponse du bon code. Isoler le signal utile dans le bruit : réflexe permanent en exploitation.
+
+### 📌 À retenir
+
+- Bruteforce = tester tout l'espace de recherche ; 10 000 codes = trivial à épuiser
+- `{0000..9999}` : expansion d'accolades pour générer les combinaisons
+- Un PIN court sans verrouillage ni délai = cassable en quelques secondes → d'où le multi-facteur moderne
 
 ---
 ## Level 25 → Level 26
@@ -1099,6 +1710,35 @@ jHdv2ELQhT22BkprMNDjybZDAkw1zeBJ
 `more`, `v` (pour ouvrir vi), `:set shell=/bin/bash`, `:shell`
 
 ---
+
+## 🔬 Pour aller plus loin : les shell escapes
+
+### 🕳️ Le principe
+
+Un **shell escape** consiste à sortir d'un programme prévu pour limiter l'utilisateur (pager, éditeur, menu) pour obtenir un vrai shell. `more` et `vi` sont conçus pour manipuler des fichiers — et `vi` peut lancer des commandes !
+
+```
+more (pager)  ──v──▶  vi (éditeur)  ──:shell──▶  bash
+```
+
+### 🧩 La chaîne d'évasion
+
+1. `more` affiche le fichier ; quand il est plus grand que l'écran, il passe en **mode interactif** (d'où l'astuce de réduire le terminal)
+2. `v` dans `more` ouvre le fichier dans `vi`
+3. `:set shell=/bin/bash` change le shell utilisé par vi
+4. `:shell` lance ce shell → **bash en tant que bandit26**
+
+### 🛡️ Le côté défensif
+
+C'est pourquoi les vrais systèmes restreints (rbash, kiosques, appliances) désactivent ces combinaisons : un éditeur, un pager ou un débogueur capable d'exécuter des commandes est une **porte de sortie**. Même `gdb`, `python`, `awk` peuvent servir de shell alternatif (`!sh` dans `vi`, `-c 'import os; os.system("sh")'` en Python...).
+
+### 📌 À retenir
+
+- Shell escape = exploiter les fonctions d'un programme (pager/éditeur) pour obtenir un shell
+- `more` → `v` → `vi` → `:set shell` + `:shell` : la chaîne classique
+- En sécurité défensive : un programme qui peut lancer des commandes = surface d'évasion
+
+---
 ## Level 26 → Level 27
 
 **Objectif** : Une fois connecté en tant que `bandit26` (via l'exploit `more`/`vi` du niveau précédent), un binaire setuid `bandit27-do` permet d'exécuter des commandes en tant que `bandit27` — exactement comme au Level 19→20.
@@ -1123,6 +1763,34 @@ STJLJBRRphMxKB392CT4iOr5CbzPU9ER
 
 ### 🛠️ Commandes clés
 `./bandit27-do commande`
+
+---
+
+## 🔬 Pour aller plus loin : les chaînes d'escalade — le puzzle des privilèges
+
+### 🧩 Deux binaires, deux étapes
+
+Les Levels 19→20 et 26→27 utilisent exactement la même technique (`bandit20-do`, `bandit27-do`). La vraie nouveauté du Level 26 : **il faut déjà être entré** pour l'utiliser. C'est une **chaîne d'escalade** :
+
+```
+bandit25 ──(clé ssh)──▶ bandit26 ──(more/vi escape)──▶ shell bandit26
+                                                          │
+                                          ./bandit27-do ──┘
+                                                          ▼
+                                                shell bandit27
+```
+
+### 🗺️ Le vocabulaire de l'escalade
+
+- **Escalade horizontale** : passer à un autre utilisateur de même niveau (`bandit26` → `bandit27`)
+- **Escalade verticale** : gagner des droits supérieurs (→ `root`)
+- **Chaîne d'attaque** : la combinaison de plusieurs vulnérabilités qui s'enchaînent — une clé mal protégée, un pager interactif, un binaire setuid…
+
+### 📌 À retenir
+
+- Une seule vulnérabilité suffit rarement : on enchaîne les privilèges pas à pas
+- Le bit setuid est l'un des maillons les plus courants (avec cron, `sudo` mal configuré…)
+- En CTF comme en pentest : dresser la carte des « escalades possibles » à chaque étape
 
 ---
 ## Level 27 → Level 28
@@ -1152,6 +1820,40 @@ The password to the next level is: y8Yd2ssKcpHpud7UvOSOxwamRMzIGIeQ
 
 ### 🛠️ Commandes clés
 `git clone`, `ls`, `cat`
+
+---
+
+## 🔬 Pour aller plus loin : Git en profondeur — l'architecture objet
+
+### 🧱 Les quatre types d'objets
+
+Git stocke tout sous forme d'**objets** dans `.git/objects/`, identifiés par leur hash SHA-1 :
+
+| Objet | Contenu | Commande d'inspection |
+|---|---|---|
+| **Blob** | Le contenu d'un fichier | `git hash-object fichier` |
+| **Tree** | Une liste de fichiers (un dossier) | `git ls-tree HEAD` |
+| **Commit** | Un instantané : arbre + parent + message | `git cat-file -p HEAD` |
+| **Tag** | Une étiquette pointant vers un commit | `git cat-file -t TAG` |
+
+### 🔗 Le commit, une chaîne de pointeurs
+
+```
+commit (hash) ──▶ tree (le dossier racine)
+                     ├──▶ blob "README.md" (contenu)
+                     ├──▶ tree "src/"
+                     │        └──▶ blob "main.c"
+                     └── parent: commit précédent ◀── la chaîne !
+```
+
+- Chaque commit pointe vers **son parent** : l'historique est une liste chaînée
+- Changer un octet dans un fichier change son blob, donc son hash, donc le tree, donc le commit → **tout est lié**, aucune modification n'est indétectable
+
+### 📌 À retenir
+
+- Blob = fichier, Tree = dossier, Commit = instantané, Tag = étiquette
+- L'historique est une chaîne de commits reliés par leurs parents
+- L'intégrité vient du hachage : modifier un octet = changer de hash = détectable
 
 ---
 ## Level 28 → Level 29
@@ -1220,6 +1922,38 @@ password: Em7eGtqaMySwNFjCpwzzHhLhospOcdt0
 `git log`, `git diff commit`, `git show commit:chemin`
 
 ---
+
+## 🔬 Pour aller plus loin : pourquoi Git ne peut pas oublier
+
+### 🕳️ Le commit n'est pas un « avant/après »
+
+Beaucoup croient que `git commit` « écrase » l'ancienne version. Faux : chaque commit est un **instantané complet** stocké pour toujours. Le commit suivant pointe vers le précédent — l'ancien contenu existe encore dans `.git/objects/`.
+
+### 🧭 Les outils pour fouiller l'historique
+
+| Commande | Usage |
+|---|---|
+| `git log` | Liste les commits (les plus récents d'abord) |
+| `git show <hash>:<fichier>` | Contenu d'un fichier à un commit précis |
+| `git diff <hash>` | Diff entre deux états |
+| `git reflog` | Journal local de **toutes** les opérations (même celles « supprimées » !) |
+| `git checkout <hash>` | Revenir à un état ancien (HEAD détaché) |
+
+### 💣 La fuite classique
+
+Le commit « fix info leak » n'a pas supprimé le mot de passe : il a ajouté un **nouveau commit** sans lui. Le mot de passe reste dans le commit parent. C'est pourquoi :
+
+- Ne **jamais** commit de secret (`.env`, clés, mots de passe) — même « corrigé » après
+- Pour purger : `git filter-branch` ou `BFG Repo-Cleaner` (réécriture d'historique + `git push --force`)
+- En CTF : **toujours** inspecter `git log` + `git reflog` d'un dépôt récupéré
+
+### 📌 À retenir
+
+- Git stocke des instantanés, pas des diffs : rien ne disparaît vraiment
+- `git show <commit>:<fichier>` lit un état passé sans checkout
+- Un « fix » de fuite = nouveau commit ; l'ancien secret reste lisible dans l'historique
+
+---
 ## Level 29 → Level 30
 
 **Objectif** : Le dépôt Git contient plusieurs branches. Le mot de passe est caché dans une autre branche que `master`.
@@ -1259,6 +1993,34 @@ password: jq9Dfg2rXsfYsWMgFuKlXhphjdH7USgX
 `git branch -a`, `git checkout branche`
 
 ---
+
+## 🔬 Pour aller plus loin : les branches — des pointeurs parallèles
+
+### 🎯 Une branche, c'est juste un pointeur
+
+Une branche n'est rien d'autre qu'un **pointeur mobile** vers un commit :
+
+```
+master : A ──▶ B ──▶ C          ← la branche principale
+                           ╲
+dev    :                     D ──▶ E   ← pointe vers E, dérivée de C
+```
+
+- `git branch -a` : liste les branches locales (`-a` = + les distantes `remotes/...`)
+- `git checkout dev` : déplace HEAD vers la branche `dev`
+- Créer une branche = créer un nouveau pointeur (`git branch ma_branche`)
+
+### 🕵️ Pourquoi c'est intéressant en sécurité
+
+Les branches de dev/test contiennent souvent du code, des configs ou des secrets **exclus** de la branche principale (volontairement ou non). En auditant un dépôt : toujours lister les branches (`-a`), les tags, les reflogs, les stashs avant de conclure.
+
+### 📌 À retenir
+
+- Branche = pointeur vers un commit ; `checkout` = déplacer HEAD dessus
+- `git branch -a` montre aussi les branches distantes (`remotes/`)
+- Les branches non principales = premier endroit où chercher des secrets
+
+---
 ## Level 30 → Level 31
 
 **Objectif** : Le dépôt Git contient des **tags**. L'un d'eux révèle le mot de passe.
@@ -1285,6 +2047,31 @@ bandit30@bandit:~/repo$ git show secret
 
 ### 🛠️ Commandes clés
 `git tag`, `git show tag`
+
+---
+
+## 🔬 Pour aller plus loin : les tags — des pointeurs figés
+
+### 🏷️ Tag vs branche
+
+| | Branche | Tag |
+|---|---|---|
+| Nature | Pointeur **mobile** (avance avec les commits) | Pointeur **fixe** (ne bouge plus) |
+| Usage | Développement en cours | Versions/releases (v1.0, v2.1…) |
+| Commande | `git branch` / `git checkout` | `git tag` / `git show` |
+
+- `git tag` liste les tags ; `git show <tag>` affiche l'objet pointé
+- Un tag annoté (`git tag -a`) stocke aussi un message, un auteur, une date
+
+### 🕵️ L'angle sécurité
+
+Un tag peut contenir n'importe quoi : un commit, mais aussi un message, une signature GPG… Dans un dépôt récupéré (CTF, audit), les tags sont un **endroit souvent oublié** où traînent les secrets — comme les branches, les reflogs ou les stashs.
+
+### 📌 À retenir
+
+- Tag = pointeur fixe (releases) ; branche = pointeur mobile (développement)
+- `git show <tag>` pour lire le contenu pointé
+- Vérifier les tags dans tout dépôt audité : emplacement classique de stockage caché
 
 ---
 ## Level 31 → Level 32
@@ -1341,6 +2128,74 @@ remote: .oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.oOo.
 `git add -f`, `git commit -m`, `git push`, hooks Git
 
 ---
+
+## 🔬 Pour aller plus loin : les hooks Git — l'automatisation qui exécute
+
+### 🪝 Qu'est-ce qu'un hook ?
+
+Un **hook Git** est un script exécuté automatiquement à une étape précise du cycle de vie de Git. Ils vivent dans `.git/hooks/` (ou un dossier `githooks` configuré) et sont nommés d'après l'événement : `pre-commit`, `post-commit`, `pre-push`, `post-receive`…
+
+### 🗺️ Le cycle avec les hooks
+
+```
+git commit ──▶ pre-commit (validation avant) ──▶ commit créé ──▶ post-commit
+git push   ──▶ pre-push (vérif avant) ──▶ envoi au serveur ──▶ post-receive (côté serveur !)
+```
+
+- `git add -f key.txt` : **force** l'ajout d'un fichier pourtant ignoré (le `.gitignore` contient `*.txt`)
+- Le **push** déclenche un hook **côté serveur** (`post-receive`) qui valide le contenu et répond — c'est lui qui affiche « Well done! Here is the password… »
+
+### ⚠️ Le côté sécurité
+
+- Un hook s'exécute avec les droits de l'utilisateur qui déclenche l'événement (ou du serveur côté réception)
+- Un dépôt récupéré peut contenir des hooks malveillants dans `.git/hooks/` — attention à ce qu'on exécute
+- `git clone` n'installe pas les hooks du dépôt distant (protection), mais un dépôt fourni localement peut piéger le développeur
+- En CI/CD, les hooks (et leurs équivalents : GitHub Actions, GitLab CI) sont des surfaces d'exécution de code à auditer
+
+### 📌 À retenir
+
+- Hook = script exécuté à un moment du cycle Git (`pre-commit`, `post-receive`…)
+- `git add -f` force l'ajout malgré `.gitignore`
+- Les hooks côté serveur exécutent du code à chaque push — surface de validation ET d'attaque
+
+---
+
+## 🔬 Pour aller plus loin : l'expansion du shell et la variable `$0`
+
+### 🧬 Pourquoi `$0` fonctionne
+
+Le shell majuscule transforme `ls` en `LS` (commande inconnue). Mais `$0` reste `$0` : c'est une **variable**, et les variables sont développées **après** la conversion en majuscules — le `$` n'est pas une lettre, rien à convertir !
+
+```
+>> ls            →  LS      → commande inconnue
+>> $0            →  $0      → variable développée → /bin/sh
+```
+
+### 🎯 Que contient `$0` ?
+
+`$0` est le nom du **programme en cours d'exécution** (le shell lui-même) : `-bash`, `/bin/sh`, ou le nom du script. En demandant au shell d'exécuter `$0`, on lui demande de **relancer un shell** — un shell normal, sans la conversion en majuscules, avec les droits de `bandit33`.
+
+### ⏱️ L'ordre des expansions du shell
+
+Pour comprendre : bash procède en plusieurs étapes avant d'exécuter une ligne :
+
+```
+1. Découpage en mots
+2. Expansion des accolades {a..b}
+3. Expansion des variables $VAR
+4. Substitution de commande $(...)
+5. Expansion des caractères génériques *.txt
+```
+
+La conversion en majuscules se fait en amont, mais l'expansion des variables se produit ensuite → `$0` échappe à la transformation. C'est un bel exemple de la règle : *comprendre l'ordre des opérations d'un interpréteur, c'est souvent trouver la faille*.
+
+### 📌 À retenir
+
+- `$0` = nom du programme courant ; `$1`, `$2`... = arguments ; `$?` = code de retour
+- Les variables sont développées après la conversion en majuscules → `$0` survive
+- Les "filtres" du type uppercase shell sont des obstacles cosmétiques, pas des barrières de sécurité
+
+---
 ## Level 32 → Level 33
 
 **Objectif** : Après s'être connecté en tant que `bandit32`, le shell est un interpréteur spécial qui transforme **tout en majuscules** (UPPERCASE SHELL). Impossible d'exécuter des commandes normalement, car le shell les convertit en MAJUSCULES avant de les interpréter.
@@ -1370,6 +2225,53 @@ u4P2CyPOwPGLe94RdD9Uo2FxFwvnFswM
 - C'est aussi la fin du jeu — le dernier mot de passe (`u4P2CyPOwPGLe94RdD9Uo2FxFwvnFswM`) ne donne accès à aucun niveau suivant ; c'est le trophée final !
 
 ### 🛠️ Commandes clés
+
+---
+
+## 🏁 Conclusion
+
+Bandit est le wargame d'entrée idéal : il balaye les **fondamentaux de Linux** niveau après niveau, du simple `cat` jusqu'à l'exploitation de binaires setuid et des hooks Git. Chaque niveau ajoute une brique — voici la carte des compétences acquises :
+
+| Niveau | Compétence clé | Outil principal |
+|--------|---------------|-----------------|
+| 0 → 1 | Connexion SSH (port non-standard) | `ssh -p` |
+| 1 → 2 | Noms de fichiers ambigus (tiret) | `cat ./-` |
+| 2 → 3 | Échappement & guillemets | `\` / `"..."` |
+| 3 → 4 | Fichiers cachés | `ls -la` |
+| 4 → 5 | Magic bytes / identification de type | `file` |
+| 5 → 6 | Recherche par taille | `find -size` |
+| 6 → 7 | `find` multi-critères + pipelines | `find` \| `xargs` |
+| 7 → 8 | Filtrage texte | `grep` |
+| 8 → 9 | Déduplication / fréquences | `sort` \| `uniq -u` |
+| 9 → 10 | Fichiers binaires + regex | `grep -a`, Python `re` |
+| 10 → 11 | Encodage base64 | `base64 -d` |
+| 11 → 12 | Chiffre de César / substitution | `tr` |
+| 12 → 13 | Hexdump + formats de compression | `xxd -r`, `gzip`/`bzip2`/`tar` |
+| 13 → 14 | Cryptographie asymétrique | `scp`, `ssh -i` |
+| 14 → 15 | Sockets TCP | `nc` |
+| 15 → 16 | TLS / chiffrement réseau | `openssl s_client` |
+| 16 → 17 | Scan de ports | `nmap`, `ncat --ssl` |
+| 17 → 18 | Comparaison de fichiers | `diff` |
+| 18 → 19 | SSH non-interactif | `ssh host "cmd"` |
+| 19 → 20 | Binaires SUID / escalade | `./bandit20-do` |
+| 20 → 21 | Client-serveur | `nc -l` + `suconnect` |
+| 21 → 22 | Ordonnancement cron | `cat /etc/cron.d/*` |
+| 22 → 23 | Hachage & sécurité par l'obscurité | `md5sum` |
+| 23 → 24 | Injection de script cron | heredoc `<< 'EOF'` |
+| 24 → 25 | Bruteforce PIN | `{0000..9999}` + `grep -v` |
+| 25 → 26 | Shell escape (pager/éditeur) | `more` → `vi` → `:shell` |
+| 26 → 27 | Chaînes d'escalade SUID | `./bandit27-do` |
+| 27 → 28 | Clonage de dépôts | `git clone` |
+| 28 → 29 | Historique Git (fuites) | `git log`, `git show` |
+| 29 → 30 | Branches Git | `git branch -a` |
+| 30 → 31 | Tags Git | `git tag` |
+| 31 → 32 | Hooks Git / CI | `git push` + hook |
+| 32 → 33 🏆 | Expansion du shell | `$0` |
+
+Le fil rouge : **à chaque niveau, la solution consiste à connaître un outil de plus et à comprendre comment le système interprète ce qu'on lui donne.** De la lecture d'un fichier à l'exploitation d'un setuid, c'est toute la logique de l'administration Linux — et la base de tous les wargames qui suivent (Leviathan, Natas, Narnia…).
+
+> 📌 **Voir aussi** : le [récapitulatif de ma progression sur les wargames OverTheWire]({% post_url 2026-08-03-overthewire-wargames-recapitulatif %}), avec le [writeup Leviathan]({% post_url 2026-08-01-leviathan-overthewire %}) et la roadmap des prochains wargames.
+{: .prompt-tip }
 
 ---
 

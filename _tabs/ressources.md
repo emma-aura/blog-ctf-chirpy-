@@ -21,6 +21,9 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | OverTheWire - Bandit | [https://overthewire.org/wargames/bandit/](https://overthewire.org/wargames/bandit/) | Wargame Linux pour apprendre la sécurité UNIX |
+| OverTheWire - Leviathan | [https://overthewire.org/wargames/leviathan/](https://overthewire.org/wargames/leviathan/) | Wargame orienté reverse engineering et binaires setuid |
+| 📌 Mon récap OverTheWire | [{% post_url 2026-08-03-overthewire-wargames-recapitulatif %}]({% post_url 2026-08-03-overthewire-wargames-recapitulatif %}) | Index de ma progression sur les wargames OverTheWire : Bandit & Leviathan complets, roadmap et compétences acquises |
+| Writeup Leviathan (hrbrtschmu1l) | [https://hrbrtschmu1l.medium.com/leviathan-overthewire-wargame-writeup-dd3378a6136a](https://hrbrtschmu1l.medium.com/leviathan-overthewire-wargame-writeup-dd3378a6136a) | Writeup détaillé du wargame Leviathan (0→7) : SUID, ltrace, access() vs cat, bruteforce — source d'inspiration pour mes propres writeups |
 | CTFtime | [https://ctftime.org/](https://ctftime.org/) | Calendrier mondial des CTF, classements d'équipes et archives de write-ups |
 | Hack The Box | [https://www.hackthebox.com/](https://www.hackthebox.com/) | Plateforme de pentest avec machines et challenges variés |
 | TryHackMe | [https://tryhackme.com/](https://tryhackme.com/) | Apprentissage guidé en cybersécurité, du débutant à l'avancé |
