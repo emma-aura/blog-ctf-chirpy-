@@ -64,14 +64,14 @@ Le point de départ idéal : **34 niveaux** (de 0 à 33) qui balaient les fondam
 | Niveau | Compétence clé |
 |--------|----------------|
 | 0 → 1 | Fouille de fichiers & `grep` |
-| 1 → 2 | Reverse : `ltrace` / mot de passe en clair |
-| 2 → 3 | TOCTOU : `access()` vs `cat`, symlink + espace |
-| 3 → 4 | Leurres & comparaison |
+| 1 → 2 | Reverse : `ltrace`/`strace`, mot de passe en clair (binaire **32 bits**) |
+| 2 → 3 | TOCTOU : `access()` vs `cat`, symlink `ln -s` + espace |
+| 3 → 4 | Leurres (faux mots de passe) & comparaison `strcmp` |
 | 4 → 5 | Encodage binaire → ASCII |
 | 5 → 6 | Symlink & lecture arbitraire |
 | 6 → 7 | Bruteforce + rate-limiting |
 
-**Leçons marquantes** : UID réel vs effectif, little-endian, `ltrace` vs `strace`, registres CPU — le pont parfait entre Bandit et les vrais challenges de pwn.
+**Leçons marquantes** : UID réel vs effectif et la faille **TOCTOU** (`access()` vs `cat`), `ltrace` vs `strace` (l'étage bibliothèque vs l'étage noyau, avec le filtre `strace -e trace=read,write` pour couper le bruit du chargeur dynamique), la méthode face à un binaire inconnu (du moins cher au plus cher : `ltrace` → `strace` → `strings` → `objdump`/`readelf` → `gdb`), les **leurres (decoys)** — de faux mots de passe dans le binaire (`h0no33`, `kakaka` vs le vrai `snlprintf`) —, le `\n` sournois de `fgets` qui fait partie du secret, et le rate-limiting d'un bruteforce — le pont parfait entre Bandit et les vrais challenges de pwn.
 
 ---
 
@@ -96,7 +96,7 @@ Pour les nouveaux arrivants, voici l'ordre que je recommande — c'est aussi ma 
 | Domaine | Ce que je maîtrise maintenant |
 |---------|-------------------------------|
 | **Shell & Linux** | Navigation, permissions, redirections, pipelines, `find`/`grep`/`xargs` |
-| **Reverse engineering** | `ltrace`, `strace`, `strings`, magic bytes, little-endian |
+| **Reverse engineering** | `ltrace`, `strace`, `strings`, magic bytes, encodages (binaire/ASCII) |
 | **Sécurité système** | SUID, cron, symlinks, TOCTOU, escalade de privilèges |
 | **Réseau** | `nc`, TLS, `nmap`, sockets TCP |
 | **Git** | Objets, historique, reflog, branches, tags, hooks |

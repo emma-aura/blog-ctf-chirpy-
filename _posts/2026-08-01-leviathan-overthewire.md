@@ -67,7 +67,7 @@ password: 123
 Wrong password, Good Bye ...
 ```
 
-- Plutôt que de deviner, on va **observer** ce que fait le programme : `ltrace` intercepte et affiche tous les appels aux **bibliothèques dynamiques** — c'est-à-dire les morceaux de code partagés que le programme emprunte au système (comme `printf`, qui affiche du texte, ou `strcmp`, qui compare deux chaînes) au lieu de les contenir lui-même. C'est analyser un programme de l'extérieur sans avoir son code source — le cœur du **reverse engineering** :
+- Plutôt que de deviner, on va **observer** : `ltrace` intercepte les appels aux **bibliothèques dynamiques** — les morceaux de code partagés que le programme emprunte au système (`printf`, `strcmp`...) au lieu de les contenir lui-même. C'est analyser un programme de l'extérieur sans son code source — le cœur du **reverse engineering** :
 
 ```bash
 leviathan1@leviathan:~$ ltrace ./check
@@ -83,16 +83,10 @@ puts("Wrong password, Good Bye ...")                      = 29
 *Note : dans ta session réelle, la trace et l'affichage du programme s'entremêlaient (`ltrace` écrit sur `stderr`, le programme sur `stdout`) ; j'ai nettoyé ça pour la lisibilité. Les valeurs `0x786573` et `0x646f67` sont bien celles qu'affichait `ltrace`.*
 
 - Le résultat parle de lui-même : le programme compare notre saisie avec la chaîne **`"sex"`** via `strcmp`. Le mot de passe est stocké **en clair** dans le binaire — une très mauvaise pratique de sécurité, mais une aubaine pour nous
-
-- 💡 **Petit rappel : pourquoi `getchar` renvoie des nombres ?** Un ordinateur ne connaît pas les lettres : il ne manipule que des **nombres**. Chaque caractère du clavier a donc un numéro officiel, défini par une table standard appelée **ASCII** (`'0'` = 48, `'1'` = 49, `'2'` = 50, `'3'` = 51, `'A'` = 65, `'a'` = 97...). La fonction `getchar` fait exactement une seule chose : elle lit **un caractère** de l'entrée standard et renvoie son **code ASCII** (le numéro). En pratique, dans un terminal, les caractères que tu tapes sont envoyés au programme au moment où tu appuies sur **Entrée**. C'est pour ça qu'on voit **trois appels** `getchar` dans la trace : le programme lit les trois caractères de `123` un par un, et `ltrace` nous montre le numéro renvoyé à chaque fois :
-  - `getchar(...) = 49` → le programme a lu le caractère `'1'`
-  - `getchar(...) = 50` → il a lu le caractère `'2'`
-  - `getchar(...) = 51` → il a lu le caractère `'3'`
-  Ces trois caractères sont ensuite assemblés en la chaîne `"123"`, celle qu'on retrouve dans `strcmp("123", "sex")`. La ligne `strcmp` est d'ailleurs la **seule** qui compte pour nous : `getchar` décrit *comment* le programme lit ta saisie, `strcmp` révèle *avec quoi* il la compare — c'est son argument `"sex"` qui est la vraie information, pas le retour `-1`.
-
-- 🕵️ **Et les valeurs hexadécimales à côté de `getchar` (`0x786573`, `0x646f67`...) ?** Elles ne sont pas des arguments : `getchar` n'en prend aucun. Ce sont des **valeurs de registres** — les registres sont les cases de stockage ultra-rapides situées à l'intérieur du processeur, et `ltrace` affiche leur contenu « par-dessus » faute de connaître la signature exacte de la fonction. Mais l'une d'elles est un joli easter egg : sur un processeur x86 (petit-boutiste / little-endian), charger les octets `'s' 'e' 'x'` (73 65 78 en hexa) comme un entier 32 bits donne exactement `0x786573` — le mot de passe est donc littéralement visible en hexadécimal aussi !
-- `strcmp` renvoie `-1` ici (les chaînes diffèrent) ; il renverrait `0` si elles étaient identiques — c'est cette valeur que le programme teste pour accepter ou refuser le mot de passe
-- En entrant le bon mot de passe, le programme (setuid) nous donne un shell **en tant que `leviathan2`**, ce qui permet de lire le fichier de mot de passe dédié :
+- 💡 **Pourquoi `getchar` renvoie des nombres ?** Un ordinateur ne connaît pas les lettres : chaque caractère a un numéro officiel défini par la table **ASCII** (`'1'` = 49, `'2'` = 50, `'3'` = 51...). Les **trois appels** `getchar` de la trace correspondent aux trois caractères de `123`, lus un par un (les caractères tapés ne partent qu'à l'appui sur **Entrée**). La seule ligne qui compte reste `strcmp` : `getchar` décrit *comment* le programme lit, `strcmp` révèle *avec quoi* il compare — l'argument `"sex"` est la vraie information, pas le retour `-1`
+- 🕵️ **Et les valeurs hexadécimales (`0x786573`, `0x646f67`) ?** Ce ne sont pas des arguments (`getchar` n'en prend aucun) : ce sont des **valeurs de registres** — les cases de stockage ultra-rapides du CPU — que `ltrace` affiche « par-dessus » faute de connaître la signature exacte. Petit easter egg : sur un processeur x86 (little-endian), charger les octets `'s' 'e' 'x'` comme un entier 32 bits donne exactement `0x786573` — le mot de passe est donc visible *deux fois* dans la trace ! 🥚
+- `strcmp` renvoie `-1` ici (les chaînes diffèrent) ; il renverrait `0` si elles étaient identiques — c'est cette valeur que le programme teste pour accepter ou refuser
+- En entrant le bon mot de passe, le programme (setuid) nous donne un shell **en tant que `leviathan2`** :
 
 ```bash
 leviathan1@leviathan:~$ ./check
@@ -105,112 +99,31 @@ ERJ9jTYWXE
 - Ce niveau est une première vraie initiation au **reverse engineering** : analyser un programme sans son code source. `ltrace` (et son cousin `strace`, qui trace les **appels système** au lieu des appels de bibliothèque) sont les premiers outils à essayer face à un binaire inconnu, avant même d'ouvrir un désassembleur comme `objdump` ou `gdb`
 
 ### 🛠️ Commandes clés
-`ls -la`, `./check`, `ltrace`, `cat /etc/leviathan_pass/...`
+`ls -la`, `./check`, `ltrace`, `strace -e trace=read,write`, `cat /etc/leviathan_pass/...`
 
 ---
 
-## 🔬 Pour aller plus loin : registres, little-endian, ltrace & strace
+## 🔬 Pour aller plus loin : ltrace vs strace
 
-Trois notions techniques croisées dans ce niveau méritent qu'on s'y attarde : pourquoi `ltrace` affichait ces valeurs hexadécimales bizarres, pourquoi `0x786573` vaut `"sex"`, et ce que `strace` — mentionné plus haut — aurait montré à la place.
-
-### 🗂️ Les registres : le bureau du processeur
-
-Le **CPU** (processeur) est le cerveau de l'ordinateur. Pour calculer, il doit poser ses nombres quelque part. Il a deux options :
-
-- La **RAM** : immense (des Go), mais relativement lente à atteindre → c'est l'entrepôt
-- Les **registres** : une poignée de cases situées **à l'intérieur même du CPU**, minuscules (32 ou 64 bits chacune) mais **instantanées** → c'est le bureau, tout ce qui est en cours de calcul
-
-```
-        ┌──────────────────────────┐
-        │        LE CPU            │
-        │  ┌─────┐ ┌─────┐         │
-        │  │EAX  │ │EBX  │   ...   │
-        │  │0x78…│ │0xf7…│         │
-        │  └─────┘ └─────┘         │
-        │  Registres = le BUREAU   │
-        │  (ultra-rapide)          │
-        └───────────┬──────────────┘
-                    │
-        ┌───────────▼──────────────┐
-        │   RAM = l'ENTREPÔT       │
-        │   (des Go, plus lent)    │
-        └──────────────────────────┘
-```
-
-Quand un programme appelle une fonction, les valeurs en cours circulent dans les registres. `ltrace` connaît la signature de certaines fonctions et peut afficher leurs arguments proprement ; pour `getchar`, qui n'en prend aucun, il se contente d'afficher **le contenu brut des registres** à cet instant — c'est l'origine des `0x786573` et `0x646f67` de la trace.
-
-### 🔀 Le little-endian : dans quel ordre range-t-on les octets ?
-
-Un octet (byte) ne peut contenir qu'un nombre entre `0x00` et `0xFF` (0 à 255). Une valeur comme `0x786573` est plus grande qu'un octet → elle est découpée en plusieurs octets :
-
-```
-0x786573  =  0x78  |  0x65  |  0x73
-              │       │        │
-          le + fort  milieu  le - faible
-```
-
-Question : dans quel ordre stocker ces octets en mémoire ? Deux écoles :
-
-| Convention | Ordre des octets | Exemple pour `0x786573` |
-|---|---|---|
-| **Big-endian** | Le plus fort d'abord (comme on écrit `123` : 1 puis 2 puis 3) | `78 65 73` |
-| **Little-endian** | Le plus faible d'abord (à l'envers : `123` → 3, 2, 1) | `73 65 78` |
-
-Les processeurs **x86 (Intel/AMD)** — ton PC comme le serveur Leviathan — utilisent le **little-endian**. C'est une simple convention, mais elle a une conséquence savoureuse :
-
-### 🍬 Le schéma qui relie tout : pourquoi `0x786573` = `"sex"`
-
-La chaîne `"sex"` en mémoire, ce sont les octets ASCII dans l'ordre :
-
-```
-Adresse :   …  0x100   0x101   0x102   0x103 …
-            …   0x73    0x65    0x78    0x00 …
-                's'     'e'     'x'     (fin de chaîne)
-```
-
-Si le CPU charge ces octets comme un entier 32 bits, en little-endian le premier octet lu est le **poids faible** :
-
-```
-Lecture little-endian (x86) :
-  0x73  (poids faible)   → 0x73
-  0x65  (× 256)          → 0x6500
-  0x78  (× 65536)        → 0x780000
-                              ────────
-  Total                   = 0x786573   ← EXACTEMENT la valeur de ltrace !
-```
-
-En big-endian, on aurait obtenu `0x73×65536 + 0x65×256 + 0x78 = 0x736578` — un autre nombre. Le `0x786573` que `ltrace` affichait « par hasard » est donc littéralement le mot `"sex"` relu comme un nombre : le mot de passe était visible *deux fois* dans la trace — en clair dans `strcmp("123", "sex")` et en easter egg dans le registre. 🥚
-
-Bonus : l'autre valeur de la trace, `0x646f67`, relue en little-endian donne les octets `67 6f 64` = `"god"` — sans doute un simple hasard de valeur de registre, mais amusant !
-
-### 🎯 `ltrace` vs `strace` : deux étages d'observation
-
-Ces deux outils tracent un programme, mais pas au même étage :
+Deux étages d'observation d'un même programme :
 
 - **`ltrace`** trace les appels aux **fonctions de bibliothèque** (libc : `printf`, `strcmp`, `getchar`, `fopen`…) — la *façade* que le programme utilise
 - **`strace`** trace les **appels système** — les demandes directes au **noyau Linux** (`open`, `read`, `write`, `execve`, `socket`…) — le *moteur* qui fait vraiment le travail
 
 **L'analogie du restaurant** : `ltrace` voit ce que le client commande au comptoir (« un café »), `strace` voit ce qui se passe en cuisine (moudre le café, verser l'eau...). Un appel de bibliothèque englobe souvent plusieurs appels système : `printf` finit par faire un `write`, `getchar` un `read`, `fopen` un `open`.
 
-Le même programme `check` vu par les deux outils — `ltrace`, la couche *programme* :
+Le même programme `check` vu par les deux outils (`strace` est schématisé : la trace réelle est noyée sous le bruit du chargeur dynamique, voir plus bas) :
 
-```bash
-printf("password: ")                        = 10
-getchar()                                   = 49
-strcmp("123", "sex")                        = -1
-puts("Wrong password, Good Bye ...")        = 29
-```
+| `ltrace` | `strace` |
+|---|---|
+| `printf("password: ") = 10` | `write(1, "password: ", 10) = 10` |
+| `getchar() = 49` | `read(0, "123\n", 1024) = 4` |
+| `strcmp("123", "sex") = -1` | *(calcul interne au CPU, rien à tracer)* |
+| `puts("Wrong password...") = 29` | `write(1, "Wrong password...\n", 29) = 29` |
 
-Et `strace`, la couche *noyau* (schématique) :
-
-```bash
-write(1, "password: ", 10)                   = 10   # écrire sur l'écran (fd 1 = stdout)
-read(0, "123\n", 1024)                      = 4    # lire au clavier (fd 0 = stdin)
-write(1, "Wrong password, Good Bye ...\n", 29) = 29 # 28 caractères + le saut de ligne
-exit_group(0)                                         # quitter le programme
-```
-
-Le `strcmp` n'apparaît pas chez `strace` : c'est du calcul interne au programme, pas une demande au noyau. À l'inverse, `ltrace` ne montre pas les numéros de **descripteurs de fichiers** (`fd 0`, `fd 1`...) — la spécialité de `strace`, qui permet de savoir *quel fichier est ouvert par quoi*.
+- **`strcmp` n'apparaît jamais chez `strace`** : comparer deux chaînes est du pur calcul interne au CPU, aucune demande au noyau → rien à tracer. C'est exactement pourquoi `ltrace` est le bon outil sur ce niveau
+- **Quand utiliser lequel ?** `ltrace` d'abord (comparaisons → mot de passe en clair, `fopen`, décodages) ; `strace` ensuite pour les fichiers/le réseau/les erreurs (`strace -e trace=openat,open ./prog`, `-f` pour suivre les processus enfants). Si `ltrace` ne montre rien (binaire statique), passe à `strace` — et inversement si `strace` est trop bavard
+- ⚠️ **`strace` brut est bruyant** : avant `main`, le **chargeur dynamique** (chargement de la libc, ASLR…) produit des dizaines d'appels identiques pour *tous* les programmes — du bruit à ignorer. On le coupe avec `strace -e trace=read,write ./check`, on suit les enfants avec `-f` (au niveau 3, le bon mot de passe lance un shell : `strace -f ./level3` révélerait l'`execve("/bin/sh")`), et on peut tout écrire dans un fichier avec `-o trace.log`
 
 Autre exemple parlant, `cat fichier.txt` :
 
@@ -221,18 +134,63 @@ Autre exemple parlant, `cat fichier.txt` :
 | `fwrite(…, 1, 17, …)` | `write(1, "Bonjour le monde\n", 17) = 17` |
 | `fclose(...)` | `close(3)` |
 
-**Quand utiliser lequel ?**
+### 📌 À retenir
 
-- **`ltrace` d'abord** sur un binaire inconnu : on cherche les comparaisons (`strcmp` → mot de passe en clair), les décodages (`strtol`, base64), les ouvertures de fichiers (`fopen`). Rapide à lire, orienté logique du programme
-- **`strace` ensuite** pour creuser le système : « quels fichiers ce programme ouvre-t-il ? » (`strace -e trace=openat,open ./prog`), « pourquoi il échoue ? » (`Permission denied` sur un `open` = problème de droits), « il contacte un serveur ? » (`connect`, `socket`, `sendto`). `strace -f` suit les processus enfants (fork), `-e trace=` filtre les appels
-- **Astuce** : si `ltrace` ne montre rien d'intéressant (binaire statique ou sans libc), passe à `strace`. L'inverse : un programme très lié à libc produit des tonnes de syscalls avec `strace` (bruit) alors que `ltrace` reste lisible
+- **`ltrace`** = l'étage bibliothèque (logique du programme : `printf`, `strcmp`, `fopen`) ; **`strace`** = l'étage noyau (fichiers, descripteurs, réseau, erreurs) — un appel de bibliothèque englobe souvent plusieurs appels système
+- **`strace` brut est bruyant** : le chargeur dynamique produit des dizaines d'appels avant `main` → filtrer avec `-e trace=read,write`, suivre les enfants avec `-f`
+- Un binaire peut être **32 bits** (`strace` l'annonce : `runs in 32 bit mode`, libc chargée depuis `/usr/lib32/`) — fréquent sur les vieux wargames
+
+---
+
+## 🔬 Pour aller plus loin : méthode face à un binaire inconnu
+
+La règle d'or du niveau 1 — **on ne devine pas, on observe** — et le principe directeur : *toujours commencer par le moins cher*. Un réflexe bonus avant même de tracer : `file ./binaire` — il donne d'un coup l'architecture (32/64 bits), le format (ELF) et la liaison (statique/dynamique), ce qui oriente déjà le choix des outils.
+
+### 🪜 L'échelle des outils, du plus rapide au plus lourd
+
+| Étape | Outil | Type | Ce qu'on cherche | Coût |
+|---|---|---|---|---|
+| 1 | `ltrace` | dynamique (appels libc) | `strcmp` avec chaîne en dur, `fopen`, `system`, décodages | quasi nul |
+| 2 | `strace -e trace=…` | dynamique (noyau) | fichiers ouverts, réseau, erreurs (`ENOENT`, `EACCES`) | faible |
+| 3 | `strings` | statique (fouille rapide) | mots de passe, chemins, indices cachés | faible |
+| 4 | `objdump` / `readelf` | statique (désassemblage) | le code assembleur, la structure ELF, les sections | moyen |
+| 5 | `gdb` | dynamique (pas à pas) | exécution contrôlée, registres, mémoire | élevé |
+
+### 🧭 L'ordre, en une image
+
+```text
+ 1. ltrace ───────────► trouvé ? ──► OUI : on exploite !
+      │
+      └── non
+           ▼
+ 2. strace -e trace= ─► trouvé ? ──► OUI : on exploite !
+      │
+      └── non
+           ▼
+ 3. strings ──────────► trouvé ? ──► OUI : on exploite !
+      │                    ⚠️ méfie-toi des LEURRES
+      └── non
+           ▼
+ 4. objdump / readelf ─► trouvé ? ──► OUI : on exploite !
+      │
+      └── non
+           ▼
+ 5. gdb ───────────────► dernier recours : pas à pas
+```
+
+### 🎯 L'essentiel de chaque étape
+
+1. **`ltrace` — le réflexe n°1.** On cherche les appels « parlants » : comparaisons de chaînes, ouvertures de fichiers, exécutions de commandes (`system`). Le niveau 1 s'est résolu à cette seule étape
+2. **`strace -e trace=…` — creuser le système.** Quels fichiers sont ouverts (`-e trace=openat,open`), quelles erreurs (`ENOENT`, `EACCES`), quelles connexions. ⚠️ **Cas particulier : binaire setuid.** Si `ltrace` échoue — c'est le cas au niveau 4, où `AT_SECURE` bloque `LD_PRELOAD` — passe directement à `strace` : il fonctionne toujours et donne la **cause exacte** (`openat = -1 EACCES`). `ltrace` dit *que* ça échoue, `strace` dit *pourquoi*
+3. **`strings` — la fouille statique.** Extrait les chaînes imprimables du binaire *sans l'exécuter*. ⚠️ Attention au **security theater** : un binaire peut contenir de faux secrets pour égarer — le niveau 3 en est l'exemple parfait (`h0no33`, `kakaka` vs `snlprintf`). `strings` seul suggère, il ne prouve pas
+4. **`objdump` / `readelf` — le désassemblage.** `objdump -d` montre l'assembleur, `readelf -h`/`-l`/`-x` la structure ELF — la *vraie* logique du programme, mais au prix d'un effort plus élevé. À réserver quand les traces ne suffisent plus
+5. **`gdb` — la dernière carte.** Le débogueur : points d'arrêt, registres, mémoire, exécution pas à pas. Le plus puissant… et le plus exigeant
 
 ### 📌 À retenir
 
-- **Registre** = case de travail ultra-rapide dans le CPU (le « bureau »), par opposition à la RAM (l'« entrepôt »)
-- **Little-endian** = convention x86 où le poids faible est stocké en premier (à l'envers de notre écriture)
-- Conséquence : une chaîne de caractères et un nombre peuvent être **la même chose**, juste lus dans des sens différents
-- **`ltrace`** = l'étage bibliothèque (logique du programme : `printf`, `strcmp`, `fopen`) ; **`strace`** = l'étage noyau (fichiers, descripteurs, réseau, erreurs) — un appel de bibliothèque englobe souvent plusieurs appels système
+- **Du moins cher au plus cher** : `ltrace` → `strace -e trace=` → `strings` → `objdump`/`readelf` → `gdb` — dynamique avant statique
+- **Croiser les outils** : `ltrace` montre les appels, `strings` montre les données — et `strings` seul peut tomber dans les leurres
+- **Binaire setuid ?** `ltrace` peut échouer (`AT_SECURE` bloque `LD_PRELOAD`) — `strace` donne alors la cause exacte (`EACCES`)
 
 ---
 
@@ -254,7 +212,7 @@ leviathan2@leviathan:~$ ./printfile /etc/leviathan_pass/leviathan3
 You cant have that file...
 ```
 
-- L'erreur vient d'un **contrôle de permissions** intégré au programme : il appelle la fonction `access()` *avant* de lire le fichier avec `cat`. `ltrace` nous le montre :
+- L'erreur vient d'un **contrôle de permissions** intégré au programme : il appelle `access()` *avant* de lire le fichier avec `cat` :
 
 ```bash
 leviathan2@leviathan:~$ ltrace ./printfile /etc/leviathan_pass/leviathan3
@@ -276,14 +234,29 @@ cat: b: No such file or directory
 
 - Le `cat: b: No such file or directory` est une erreur **bénigne** : `b` n'existe pas, mais `a` (le lien) a déjà été lu et son contenu affiché. 💪
 
+### 🔗 `ln -s` — le raccourci qui lit pour nous
+
+- **Syntaxe** : `ln -s CIBLE NOM_DU_LIEN` — la **cible** (le fichier visé) en premier, le **nom du raccourci** en second. Piège classique de débutant : si on inverse, on crée un lien qui pointe vers un fichier inexistant
+- Résultat : un fichier `a` dans le dossier courant, qui n'est qu'un *raccourci* vers la cible — `ls -l` l'affiche avec une flèche, et `readlink` montre la cible :
+
+```bash
+leviathan2@leviathan:/tmp/hs$ ls -l a
+lrwxrwxrwx 1 leviathan2 leviathan2 29 Jun 24 15:05 a -> /etc/leviathan_pass/leviathan3
+leviathan2@leviathan:/tmp/hs$ readlink a
+/etc/leviathan_pass/leviathan3
+```
+
+- **Ouvrir le lien = ouvrir la cible** : quand le programme setuid lance `cat a`, le noyau suit le lien et lit le vrai fichier — avec les droits de `leviathan3`. Nous ne pouvons pas lire `/etc/leviathan_pass/leviathan3` directement, mais le programme setuid, lui, le peut, et un simple lien suffit à lui faire lire *notre* cible
+- On retrouvera ce réflexe au niveau 5 (`ln -s /etc/leviathan_pass/leviathan6 /tmp/file.log`) : le symlink est l'outil n°1 pour détourner la lecture d'un programme privilégié
+
 ### 🛠️ Commandes clés
 `ln -s`, `touch 'a b'`, `~/printfile 'a b'`, `ltrace`
 
 ---
 
-## 🔬 Pour aller plus loin : access(), UID réel vs effectif, et le bug d'argument
+## 🔬 Pour aller plus loin : access(), UID réel vs effectif, TOCTOU
 
-C'est LE niveau le plus intéressant du wargame (l'auteur de l'article source le confirme). Il mêle trois notions :
+C'est LE niveau le plus intéressant du wargame. Il mêle trois notions :
 
 ### 👤 UID réel vs UID effectif
 
@@ -296,11 +269,9 @@ Normalement RUID = EUID. Le bit **setuid** décale l'EUID : le programme tourne 
 
 ### ⚠️ Pourquoi `access()` est-il dangereux ?
 
-`access()` répond à la question : « *l'utilisateur réel peut-il lire ce fichier ?* ». Mais elle **ne vérifie pas** si l'utilisateur *effectif* le peut. Utiliser `access()` pour *autoriser* puis `cat` pour *lire* crée un écart entre **la vérification** (RUID) et **l'action** (EUID) — c'est une faille classique. Le manuel Linux (`man 2 access`) le dit noir sur blanc : utiliser `access()` pour décider d'un accès ultérieur est **une faille de sécurité** (catégorie CWE-367 TOCTOU — *Time Of Check To Time Of Use*, l'écart entre le moment où l'on vérifie et le moment où l'on utilise).
+`access()` répond à la question : « *l'utilisateur réel peut-il lire ce fichier ?* » — mais elle **ne vérifie pas** si l'utilisateur *effectif* le peut. Utiliser `access()` pour *autoriser* puis `cat` pour *lire* crée un écart entre **la vérification** (RUID) et **l'action** (EUID). Le manuel Linux (`man 2 access`) le dit noir sur blanc : c'est **une faille de sécurité** (catégorie **CWE-367 TOCTOU** — *Time Of Check To Time Of Use*, l'écart entre le moment où l'on vérifie et le moment où l'on utilise).
 
 ### 🪞 Le bug d'argument : deux lecteurs, deux grammaires
-
-Le même argument `a b` est interprété différemment par les deux fonctions :
 
 ```
             "a b"
@@ -312,7 +283,7 @@ access("a b")          cat a b
    (existe, OK)         → "a" = lien → mot de passe !
 ```
 
-`access()` traite l'argument comme une **chaîne unique** ; `cat` le découpe aux **espaces**. L'écart de grammaire = la faille. On retrouve ce genre de « deux interprétations d'un même input » (parsing confusion) aussi bien en web qu'en binaire.
+`access()` traite l'argument comme une **chaîne unique** ; `cat` le découpe aux **espaces**. L'écart de grammaire = la faille — un principe de *parsing confusion* qu'on retrouve aussi bien en web qu'en binaire.
 
 ### 📌 À retenir
 
@@ -325,73 +296,169 @@ access("a b")          cat a b
 
 ## Level 3 → Level 4
 
-**Objectif** : Encore un binaire setuid, cette fois `level3`, qui demande un mot de passe. Même réflexe que le niveau 1 : on ne devine pas, on **observe**.
+**Objectif** : Encore un binaire setuid, cette fois `level3`, appartenant à `leviathan4`. Il demande un mot de passe. Même réflexe que le niveau 1 : on ne devine pas, on **observe**.
 
 ### 🔍 Découvertes
 
-- Un `ls -la` montre le binaire setuid appartenant à `leviathan4` ; le lancer affiche un message bizarre avant de demander le mot de passe :
+- Un `ls -la` montre le binaire setuid ; le lancer affiche un prompt tout simple :
 
 ```bash
 leviathan3@leviathan:~$ ls -la
--r-sr-x---   1 leviathan4 leviathan3 10123 Jun 24 15:01 level3
+-r-sr-x---   1 leviathan4 leviathan3 18164 Jun 24 15:00 level3
 leviathan3@leviathan:~$ ./level3
-[You've got shell]!
-password:
+Enter the password> 123
+bzzzzzzzzap. WRONG
 ```
 
-- On trace avec `ltrace` — la réponse est immédiate :
+- On trace avec `ltrace` — et cette fois la trace contient une surprise :
 
 ```bash
 leviathan3@leviathan:~$ ltrace ./level3
-printf("[You've got shell]!\n")                = 21
-strcmp("123", "snlprintf")                     = -1
+__libc_start_main(["./level3"] <unfinished ...>
+strcmp("h0no33", "kakaka")      = -1
+printf("Enter the password> ")  = 20
+fgets("123\n", 256, 0xf7fa85a0) = 0xffffd26c
+strcmp("123\n", "snlprintf\n")  = -1
+puts("bzzzzzzzzap. WRONG")      = 19
 ```
 
-- Le mot de passe est encore **en clair** dans le binaire : **`snlprintf`**. (Le message `[You've got shell]!` affiché dès le lancement est un **leurre** : il s'affiche avant même de vérifier le mot de passe !)
+*(Comme au niveau 1, la trace de `ltrace` — écrite sur `stderr` — et l'affichage du programme — sur `stdout` — s'entremêlent sur le terminal ; j'ai séparé les deux pour la lisibilité.)*
+
+- La trace se lit comme une recette, dans l'ordre :
+  1. **`strcmp("h0no33", "kakaka")`** — une comparaison **factice** : le programme compare deux chaînes codées en dur, et **aucune des deux n'est notre saisie** ! Ce sont des **leurres** (decoys) : de faux mots de passe pour égarer la fouille (détail plus bas)
+  2. **`printf("Enter the password> ")`** — l'affichage du prompt
+  3. **`fgets("123\n", 256, ...)`** — la lecture de la saisie : `fgets` lit **toute la ligne, y compris le retour à la ligne** (le `\n` du Enter)
+  4. **`strcmp("123\n", "snlprintf\n")`** — LA comparaison qui compte : notre saisie est comparée à `snlprintf\n`. Le vrai mot de passe est **`snlprintf`** (le `\n` vient de `fgets`, détail plus bas)
+  5. **`puts("bzzzzzzzzap. WRONG")`** — le refus, si la comparaison échoue
+
+- En entrant le bon mot de passe, le programme (setuid) affiche `[You've got shell]!` et lance un shell **en tant que `leviathan4`** :
 
 ```bash
 leviathan3@leviathan:~$ ./level3
+Enter the password> snlprintf
 [You've got shell]!
-password: snlprintf
+$ id
+uid=12004(leviathan4) gid=12003(leviathan3) groups=12003(leviathan3)
 $ cat /etc/leviathan_pass/leviathan4
-<mot de passe de leviathan4>
+XIyBbRwAPt
+$ exit
 ```
 
+- Détail du `id` : `uid=12004(leviathan4)` confirme que le setuid a fait son travail — le shell a les droits de `leviathan4`, d'où la lecture possible du fichier de mot de passe. Le groupe reste `leviathan3` : normal, le bit setuid ne change que l'**UID effectif**, pas le groupe
+- 💡 **Rappel du niveau précédent** : au niveau 2, on avait déjà créé un lien `a` avec `ln -s` pour détourner la lecture du programme setuid. Ici, pas besoin de détournement : le programme nous offre lui-même un shell — mais le mécanisme est le même, un binaire setuid agit avec les droits de son propriétaire (`leviathan4`)
+
 ### 🛠️ Commandes clés
-`ls -la`, `./level3`, `ltrace`, `cat /etc/leviathan_pass/...`
+`ls -la`, `./level3`, `ltrace`, `strings`, `cat /etc/leviathan_pass/...`
 
 ---
 
-## 🔬 Pour aller plus loin : les leurres en reverse
+## 🔬 Pour aller plus loin : les leurres (decoys) et le `\n` de `fgets`
 
-- Ce niveau rappelle que l'**affichage** d'un programme ne reflète pas sa **logique** : ici, « You've got shell » s'affiche *avant* toute vérification — une simple fonction `puts` au début du code, pas une vraie réussite
-- Le **leurre** (décoy) est une technique de protection naïve : mettre de fausses chaînes ou de faux messages pour égarer celui qui lit le binaire avec `strings`. Elle ne résiste pas à `ltrace`/`strace`, qui montrent les *vrais* appels
-- Réflexe à garder : face à un binaire qui « semble » faire quelque chose, toujours vérifier avec `ltrace` ce qu'il fait **réellement**
+### 🎭 De faux mots de passe dans le binaire
+
+- Le binaire `level3` contient **trois chaînes** qui ont toutes la tête d'un mot de passe : `h0no33`, `kakaka`… et `snlprintf`. Deux sur trois sont des **leurres** : seul `snlprintf` (avec son `\n`) fonctionne. `strings` permet de les voir d'un coup d'œil, sans exécuter le binaire :
+
+```bash
+leviathan3@leviathan:~$ strings ./level3 | grep -E 'h0no33|kakaka|snlprintf'
+h0no33
+kakaka
+snlprintf
+```
+
+- Un attaquant pressé fouille le binaire avec `strings`, essaie `h0no33` ou `kakaka`… et obtient `bzzzzzzzzap. WRONG` à chaque fois. La fausse piste fait perdre du temps — une protection « anti-analyste » naïve, du **security theater** : ça ne ralentit que celui qui ne vérifie pas ce que le programme fait *vraiment*
+- Le premier `strcmp("h0no33", "kakaka")` de la trace est l'empreinte de ce leurre : un appel **mort** — son résultat est jeté, **notre saisie n'est jamais impliquée**. Il n'existe que pour apparaître dans une trace et faire douter. La parade : `ltrace` montre les **vrais** appels, leurres compris — seule la comparaison avec notre saisie compte
+
+### ⌨️ Pourquoi le `\n` dans `strcmp("123\n", "snlprintf\n")` ?
+
+- Le programme lit la saisie avec `fgets` (pas `getchar` comme au niveau 1) : il lit **toute la ligne**, caractères tapés **plus le retour à la ligne** envoyé par Entrée. La chaîne stockée dans le binaire contient donc elle-même un `\n` final — `"snlprintf\n"` — et c'est ce qui fait partie du secret
+- Conséquence amusante : `echo -n snlprintf | ./level3` (sans le saut de ligne) échouerait — le `\n` fait partie du mot de passe à fournir !
+
+### 📌 À retenir
+
+- Un binaire peut contenir de **faux secrets** (decoys) pour égarer `strings` ; seule l'observation des appels (`ltrace`) montre ce qui compte vraiment
+- Un appel de fonction **mort** (résultat jeté, saisie jamais impliquée) = probablement un leurre
+- `fgets` conserve le `\n` → si `strcmp` compare contre `"xxx\n"`, le saut de ligne fait partie du mot de passe à fournir
 
 ---
 
 ## Level 4 → Level 5
 
-**Objectif** : Un répertoire `.trash` (corbeille) contient un binaire `bin`. Il affiche… des nombres binaires. Il faut les décoder.
+**Objectif** : Un dossier `.trash` (la corbeille) cache un binaire `bin` avec le bit setuid. Exécuté, il affiche des nombres binaires — le mot de passe de `leviathan5`, simplement encodé.
 
 ### 🔍 Découvertes
 
+- Le répertoire personnel ne contient qu'un dossier à l'accès restreint : `.trash`, lisible par notre groupe (`leviathan4`) mais pas par tout le monde :
+
 ```bash
 leviathan4@leviathan:~$ ls -la
-drwxr-x---   2 leviathan5 leviathan4 4096 Jun 24 15:01 .trash
-leviathan4@leviathan:~$ cd .trash && ls -la
--r-sr-x---   1 leviathan5 leviathan4 1900 Jun 24 15:01 bin
+dr-xr-x---   2 root leviathan4 4096 Jun 24 15:01 .trash
 ```
 
-- En lançant `./bin`, on obtient une série de nombres en **binaire** (0 et 1) :
+- On y entre (on est dans le groupe `leviathan4`) et `ls -ls` révèle un unique binaire setuid de 14 Ko :
+
+```bash
+leviathan4@leviathan:~$ cd ./.trash/
+leviathan4@leviathan:~/.trash$ ls -ls
+16 -r-sr-x--- 1 leviathan5 leviathan4 14936 Jun 24 15:01 bin
+```
+
+- Réflexe du niveau 1 : on trace avec `ltrace`… et surprise, ça **échoue** :
+
+```bash
+leviathan4@leviathan:~/.trash$ ltrace ./bin
+fopen("/etc/leviathan_pass/leviathan5", "r")   = nil
++++ exited (status 255) +++
+```
+
+- Le programme veut ouvrir le mot de passe de `leviathan5` — mais `fopen` renvoie `nil` (NULL, l'échec) et le programme sort avec le code **255**. Pourquoi échoue-t-il sous `ltrace`, alors que le bit setuid devrait lui donner les droits de `leviathan5` ?
+  - `ltrace` intercepte les appels de bibliothèque en injectant sa bibliothèque via la variable d'environnement **`LD_PRELOAD`**
+  - Or, pour un binaire **setuid**, le noyau active le *secure-execution mode* (drapeau **`AT_SECURE`**) : le chargeur dynamique `ld.so` **ignore** `LD_PRELOAD`, précisément pour empêcher d'injecter du code dans un programme privilégié
+  - `ltrace` retombe alors sur un traçage par `ptrace` dans lequel les privilèges setuid ne sont pas appliqués : le programme tourne avec nos droits (leviathan4), ne peut pas lire le fichier protégé → `fopen = nil` → exit 255
+
+- **Vérification au niveau noyau avec `strace`** — la trace confirme le diagnostic, avec la cause exacte en prime. `strace` n'intercepte aucune bibliothèque (rien à bloquer) : il observe les appels système, et il montre la **preuve** de l'échec :
+
+```bash
+leviathan4@leviathan:~/.trash$ strace ./bin
+execve("./bin", ["./bin"], 0x7fffffffe360) = 0
+[ Process PID=132 runs in 32 bit mode. ]
+... (bruit du chargeur identique au niveau 1 : openat de la libc, mmap2, mprotect, getrandom…) ...
+openat(AT_FDCWD, "/etc/leviathan_pass/leviathan5", O_RDONLY) = -1 EACCES (Permission denied)
+exit_group(-1)                          = ?
++++ exited with 255 +++
+```
+
+  - **La ligne qui compte** : `openat(..., "/etc/leviathan_pass/leviathan5", O_RDONLY) = -1 EACCES`. `EACCES` = *Permission denied* : le noyau répond « tu n'as pas le droit ». Or si le setuid avait fonctionné, le processus (EUID = leviathan5) aurait **le droit** de lire ce fichier, propriété de leviathan5 ! L'`EACCES` est donc la preuve irréfutable que le programme tourne avec **nos** droits (leviathan4) pendant le tracing
+  - À comparer avec `ltrace` : il montrait `fopen = nil` (la fonction de bibliothèque échoue, sans dire pourquoi) ; `strace` montre l'appel système `openat = -1 EACCES` (le noyau explique *pourquoi*). Deux étages, même échec — mais `strace` donne la raison exacte. C'est exactement la leçon de la section « ltrace vs strace » du niveau 1
+
+- **Mais peu importe !** C'est un cas d'école de la *méthode face à un binaire inconnu* vue au niveau 1 : l'étape 1 (`ltrace`) est bloquée par le setuid, on saute à l'étape 3 — **`strings`** — qui révèle tout, d'autant que le binaire **n'est pas strippé** (sa table de symboles est intacte) :
+
+```bash
+leviathan4@leviathan:~/.trash$ strings bin | grep -E 'leviathan_pass|fgets|putchar|fopen|strlen|bin.c'
+/etc/leviathan_pass/leviathan5
+fgets
+putchar
+fopen
+strlen
+bin.c
+```
+
+  - Le chemin du fichier visé (`/etc/leviathan_pass/leviathan5`) et les fonctions utilisées : `fopen` (ouvrir), `fgets` (lire une ligne), `strlen` (mesurer), `putchar` (afficher caractère par caractère) — on peut même **reconstituer le code source** : ouvrir le fichier, lire la ligne, et pour chaque caractère imprimer son écriture binaire
+  - Bonus forensics : le nom du fichier source (`bin.c`) apparaît, ainsi que `__wrap_main` (le binaire a été compilé avec l'astuce de linker `--wrap=main`) et l'empreinte compilateur `GCC 15.2.0`
+
+- Et effectivement : en lançant simplement `./bin`, le programme fait le travail **pour nous** — il imprime le mot de passe… en binaire :
 
 ```bash
 leviathan4@leviathan:~/.trash$ ./bin
-01000101 01010010 01001010 ... (etc.)
+01000010 01110101 01100010 00111001 01100111 01011010 00110011 01000010 01000111 01010101 00001010
 ```
 
-- 💡 Chaque groupe de 8 bits est un **octet** = un **code ASCII** : `01000101` = 69 = `'E'`, `01010010` = 82 = `'R'`… Le programme nous affiche le mot de passe… encodé en binaire ! C'est du **chiffrement de pacotille** : une simple transformation, pas un vrai secret.
-- Plutôt que de décoder à la main, on écrit un petit **script Python** (le même que l'auteur de l'article source) :
+- 💡 Chaque groupe de 8 bits est un **octet** = un **code ASCII** : `01000010` = 66 = `'B'`, `01110101` = 117 = `'u'`… Le binaire nous affiche le secret, simplement **encodé** — une transformation de base réversible sans clé, pas un vrai chiffrement
+- Pour décoder, deux options : la **one-liner Perl** utilisée dans la session, ou le **script Python** classique :
+
+```bash
+leviathan4@leviathan:~/.trash$ echo "01000010 01110101 01100010 00111001 01100111 01011010 00110011 01000010 01000111 01010101" | perl -lape 's/([01]{8})\s*/chr(oct("0b$1"))/eg'
+Bub9gZ3BGU
+```
 
 ```python
 nums = open('nums.txt', 'r').read().split()
@@ -401,12 +468,12 @@ password = ""
 print(password.join(nums))
 ```
 
-*(Raccourci : rediriger la sortie — `./bin > nums.txt` — puis lancer le script.)*
+*(Raccourci : rediriger la sortie — `./bin > nums.txt` — puis lancer le script Python.)*
 
-- Le résultat est le mot de passe du niveau suivant.
+- Résultat : **`Bub9gZ3BGU`**, le mot de passe de `leviathan5`. *(Les mots de passe OverTheWire tournent régulièrement : c'est bien la valeur de la session actuelle, pas celle des vieux writeups.)*
 
 ### 🛠️ Commandes clés
-`cd .trash`, `./bin`, `./bin > nums.txt`, script Python (`int(x, 2)` + `chr()`)
+`cd .trash`, `ls -ls`, `ltrace`/`strace -e trace=openat` (échouent sur setuid, `AT_SECURE`), `strings bin`, `./bin`, one-liner Perl (`perl -lape`), script Python (`int(x, 2)` + `chr()`)
 
 ---
 
@@ -414,34 +481,33 @@ print(password.join(nums))
 
 ### 🧮 Comprendre `int(x, 2)` et `chr()`
 
-- Le binaire est une **base 2** : chaque chiffre est un bit, et sa valeur dépend de sa position (puissance de 2) :
+- Le binaire est une **base 2** : chaque bit vaut une **puissance de 2** selon sa position (`01000101` = 4 + 16 + 64 = 69)
+- `int("01000101", 2)` → 69 : conversion **binaire → entier** ; `chr(69)` → `'E'` : conversion **entier → caractère ASCII**. C'est exactement ce que fait le script ligne par ligne, en une boucle
+- 8 bits = 2⁸ = 256 valeurs possibles (0 à 255) — de quoi coder les 128 caractères ASCII de base. Un **octet** est l'unité de base de la mémoire : `xxd`, `hexdump`, `strings` ne font que relire ces octets autrement
 
-```
-01000101
-│││││││└─ 2⁰ = 1        → 0
-││││││└── 2¹ = 2        → 0
-│││││└─── 2² = 4        → 1  → 4
-││││└──── 2³ = 8        → 0
-│││└───── 2⁴ = 16       → 1  → 16
-││└────── 2⁵ = 32       → 0
-│└─────── 2⁶ = 64       → 0
-└──────── 2⁷ = 128      → 0
-Total : 4 + 16 + 64 = 69 = 'E'  (en ASCII)
+### 🐪 La one-liner Perl décortiquée
+
+```bash
+echo "01000010 01110101 ..." | perl -lape 's/([01]{8})\s*/chr(oct("0b$1"))/eg'
 ```
 
-- `int("01000101", 2)` → 69 : conversion **binaire → entier**
-- `chr(69)` → `'E'` : conversion **entier → caractère ASCII**
-- C'est exactement ce que fait le script ligne par ligne, en une boucle
+Elle fait le même travail que le script Python, mais tout est condensé :
 
-### 🔤 Pourquoi 8 bits ?
+- **`perl -lape`** : `-e` = le programme est passé en argument, `-p` = lire l'entrée ligne par ligne et afficher le résultat, `-l` = gérer les fins de ligne, `-a` = découper chaque ligne en champs (classique)
+- **`s/.../.../eg`** : une **substitution** de texte (comme `sed`) — le `e` dit que le remplacement est une *expression* Perl à évaluer, le `g` = *global*, on remplace toutes les occurrences
+- **`([01]{8})`** : le motif cherché — un groupe d'exactement **8 bits** (`[01]` = un bit, `{8}` = répété 8 fois), capturé dans `$1`. **`chr(oct("0b$1"))`** préfixe en binaire (`0b...`), convertit en **nombre** (`oct`), puis en **caractère** (`chr`) — exactement `int(x, 2)` puis `chr()` du Python
 
-8 bits = 2⁸ = 256 valeurs possibles (0 à 255) — de quoi coder les 128 caractères ASCII de base. Un **octet** est l'unité de base de la mémoire moderne. Décoder des octets, c'est le B.A.-BA du forensics et du reverse : `xxd`, `hexdump`, `strings` ne font que relire ces octets autrement.
+### ⏎ Et ce `00001010` final ?
+
+La dernière valeur de la sortie de `./bin`, `00001010` = 10, est le code ASCII du **retour à la ligne** (`\n`) ! Parce que `fgets` — on l'a vu au niveau 3 — conserve le `\n` : le programme convertit *chaque* caractère du fichier en binaire, newline comprise. Ce n'est pas un bug : c'est la preuve que le programme traite tout le contenu du fichier. Dans la one-liner Perl de la session, il n'apparaît d'ailleurs pas — l'`echo` ne l'a pas transmis.
 
 ### 📌 À retenir
 
 - Binaire (base 2) → entier → caractère : la chaîne de conversion universelle
 - Un « chiffrement » qui se contente de changer de base n'en est **pas un** : c'est de l'**encodage**
-- Python : `int(x, 2)`, `chr()`, `ord()` (l'inverse de `chr`) — à connaître par cœur
+- Python : `int(x, 2)`, `chr()`, `ord()` (l'inverse de `chr`) — à connaître par cœur ; Perl : `chr(oct("0b$1"))` — la même chose en une ligne
+- **`ltrace` échoue sur les binaires setuid** (`AT_SECURE` ignore `LD_PRELOAD`) ; `strace` en montre la cause : `openat = -1 EACCES` → passer directement à `strings` + exécution
+- Un binaire **non strippé** (comme `bin`) garde ses symboles : `strings` révèle fonctions, chemins et même le nom du fichier source
 
 ---
 
@@ -471,11 +537,57 @@ unlink("/tmp/file.log")              = 0
 
 ```bash
 leviathan5@leviathan:~$ ln -s /etc/leviathan_pass/leviathan6 /tmp/file.log
+leviathan5@leviathan:~$ ls -la
+total 36
+drwxr-xr-x   2 root       root        4096 Jun 24 15:00 .
+drwxr-xr-x 150 root       root        4096 Jun 24 15:02 ..
+-rw-r--r--   1 root       root         220 Feb 13 12:16 .bash_logout
+-rw-r--r--   1 root       root        3851 Jun 24 14:50 .bashrc
+-rw-r--r--   1 root       root         807 Feb 13 12:16 .profile
+-r-sr-x---   1 leviathan6 leviathan5 15140 Jun 24 15:00 leviathan5
 leviathan5@leviathan:~$ ./leviathan5
-<mot de passe de leviathan6>
+JRGj9iWNOb
 ```
 
+- 💪 **Ma session réelle** : le `ls -la` confirme le binaire setuid (`r-s` = bit setuid, propriétaire `leviathan6`, groupe `leviathan5`) — et le programme affiche bien le mot de passe : **`JRGj9iWNOb`**
+
 - C'est le même principe que le niveau 2 (utiliser un setuid pour lire un fichier qu'on ne peut pas lire directement), mais en beaucoup plus simple : ici, **aucune vérification** n'est faite, le programme lit directement le chemin — et un lien symbolique détourne cette lecture.
+
+### 🎯 Pourquoi le symlink fonctionne ? — la logique du programme
+
+La trace révèle un programme sans la moindre vérification — en C, il ressemble à ceci :
+
+```c
+FILE *f = fopen("/tmp/file.log", "r");   // 1. chemin codé en dur, AUCUNE vérification
+if (f == NULL) {
+    puts("Cannot find /tmp/file.log");    // fichier absent → erreur
+    exit(1);
+}
+char buf[4096];
+fread(buf, 1, sizeof(buf), f);            // 2. lit le contenu
+printf("%s", buf);                        // 3. l'affiche (le mot de passe !)
+remove("/tmp/file.log");                  // 4. supprime le fichier de log
+```
+
+```bash
+leviathan5@leviathan:~$ strace ./leviathan5
+open("/tmp/file.log", O_RDONLY)      = 3
+read(3, "...", 4096)                 = 11
+unlink("/tmp/file.log")              = 0
+```
+
+| Ligne de la trace | Ce que ça signifie |
+|---|---|
+| `open("/tmp/file.log", O_RDONLY) = 3` | Ouvre le chemin `/tmp/file.log`… mais le noyau **suit le lien** et ouvre en réalité `/etc/leviathan_pass/leviathan6`. L'ouverture se fait avec les **droits effectifs** de `leviathan6` (le setuid) → le fichier protégé devient lisible |
+| `read(3, "...", 4096) = 11` | Lit le contenu : **11 octets** = les 10 caractères du mot de passe + le `\n` (le `\n` sournois du niveau 3 !) |
+| *(l'affichage)* | Le programme imprime ce qu'il a lu → **`JRGj9iWNOb`** |
+| `unlink("/tmp/file.log") = 0` | Supprime l'entrée `/tmp/file.log` : c'est le **lien** qui disparaît, **pas la cible** — `/etc/leviathan_pass/leviathan6` reste intact |
+
+Trois raisons pour lesquelles ça marche :
+
+1. **Aucune vérification** : contrairement au niveau 2 (`access()`), le programme ne contrôle ni le propriétaire ni la nature du fichier — il ouvre le chemin, point final
+2. **Le noyau suit le lien transparentement** : `open("/tmp/file.log")` devient un `open` de la cible, et le programme ne s'aperçoit même pas qu'il lit un autre fichier
+3. **Le setuid fait le reste** : le processus tourne avec l'EUID de `leviathan6`, donc l'ouverture de la cible (propriété de leviathan6) réussit — alors qu'en tant que `leviathan5`, on n'y aurait jamais eu accès
 
 ### 🛠️ Commandes clés
 `strace`, `ln -s cible lien`, `./leviathan5`
@@ -510,20 +622,53 @@ leviathan6@leviathan:~$ ./leviathan6 1234
 Wrong
 ```
 
-- 4 chiffres → 10 000 combinaisons possibles (0000 à 9999). L'auteur de l'article source propose une boucle `for` : tester chaque code, filtrer la sortie pour ne garder que ce qui n'est pas « Wrong », et **espacer les essais** pour ne pas épuiser les ressources du serveur :
+- 4 chiffres → 10 000 combinaisons possibles (0000 à 9999). On lance une boucle `for` : tester chaque code, filtrer la sortie pour ne garder que ce qui n'est pas « Wrong », et **espacer les essais** pour ne pas épuiser les ressources du serveur :
 
 ```bash
 leviathan6@leviathan:~$ for i in {0..10000}; do echo "trying $i"; ./leviathan6 $i | grep -v "Wrong"; sleep 0.005; done
 ```
 
-- 🐌 Le `sleep 0.005` n'est pas une option : sans lui, la boucle lance des milliers de processus à la seconde et le serveur finit par refuser (`fork: retry: No child processes`) — l'expérience de l'auteur. À ~5 ms par essai, la boucle entière prend environ une minute.
+- 🐌 Le `sleep 0.005` n'est pas une option : sans lui, la boucle lance des milliers de processus à la seconde et le serveur finit par refuser (`fork: retry: No child processes`). Ma session réelle le confirme : à ~5 ms par essai, la boucle entière prend environ une minute.
 - Le bon code est **`7123`** : la boucle s'arrête sur un **shell en tant que `leviathan7`** !
 
 ```bash
 leviathan6@leviathan:~$ ./leviathan6 7123
 $ cat /etc/leviathan_pass/leviathan7
-<mot de passe de leviathan7>
+3zrlkaPTfH
+$ exit
 ```
+
+### 🎯 Pourquoi `7123` ? — la logique du programme
+
+💪 **Ma session réelle** : le shell s'est ouvert sur le code `7123` et `cat` a affiché le mot de passe **`3zrlkaPTfH`**. Le `ltrace` du même passage révèle la logique complète du programme — en C, il ressemble à ceci :
+
+```c
+if (atoi(argv[1]) == 7123) {          // 1. le code est codé en dur dans le binaire
+    setreuid(geteuid(), geteuid());   // 2. devenir définitivement le propriétaire
+    system("/bin/sh");                // 3. lancer un shell avec ces droits
+} else {
+    puts("Wrong");                    // sinon : refus
+}
+```
+
+```bash
+leviathan6@leviathan:~$ ltrace ./leviathan6 7123
+atoi(0xffffd607, 0xf7fc3000, 0, 0)        = 7123
+geteuid()                                 = 12006
+geteuid()                                 = 12006
+setreuid(12006, 12006)                    = 0
+system("/bin/sh" ...)                     = ?   # la trace s'arrête : le shell a pris la main
+```
+
+| Ligne de la trace | Ce que ça signifie |
+|---|---|
+| `atoi(...) = 7123` | **`atoi`** convertit la chaîne `"7123"` en **entier** — le programme compare des nombres, pas du texte. Avec `1234` : `= 1234` → l'entier ne vaut pas 7123 → `puts("Wrong")` et exit |
+| `geteuid()` = 12006 | Lit l'**UID effectif** — l'utilisateur dont le processus a les droits. Appelé **deux fois** : une pour chaque argument de `setreuid` |
+| `setreuid(12006, 12006) = 0` | Fixe l'**UID réel** *et* l'**UID effectif** à la même valeur → l'escalade de privilèges devient **permanente** (le processus ne « redescend » pas ensuite). Le `= 0` = succès |
+| `system("/bin/sh")` | Lance un **shell** avec ces droits — c'est le `$` qu'on récupère |
+| *(tout autre code)* | `puts("Wrong")` : le test `== 7123` a échoué → pas de shell |
+
+⚠️ **Détail important sur le `12006`** : sous `ltrace`, les privilèges setuid ne sont pas appliqués (la leçon du niveau 4) — `geteuid()` renvoie donc 12006 = **leviathan6**, pas leviathan7 (le post établit plus haut que leviathan4 = 12004). En exécution **normale**, le setuid fait de l'UID effectif celui de `leviathan7` (12007) : `setreuid(12007, 12007)` puis le shell gardent ces droits, et c'est pour ça que `cat /etc/leviathan_pass/leviathan7` fonctionne.
 
 ### 🛠️ Commandes clés
 Boucle `for`, `grep -v`, `sleep 0.005`, `cat /etc/leviathan_pass/...`

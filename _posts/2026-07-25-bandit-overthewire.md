@@ -1271,6 +1271,28 @@ bandit19@bandit:~$ find / -perm -4000 2>/dev/null
 
 Un binaire setuid mal écrit (exécution de commandes avec entrées utilisateur non vérifiées, chemins relatifs, variables d'environnement manipulables...) peut permettre une **escalade de privilèges** — passer de `bandit19` à `bandit20`, voire à `root`. C'est l'un des vecteurs d'attaque les plus classiques sur Linux (voir aussi les levels Leviathan 1→2 et 2→3 qui creusent ce sujet).
 
+### 🧭 Méthode : analyser un binaire SUID inconnu
+
+Face à un binaire setuid, même réflexe que partout : **on ne devine pas, on observe** — mais avec une première étape spécifique au SUID : vérifier **qui** est le propriétaire, car ce sont *ses* droits qu'on va hériter. Voici l'échelle des outils, du plus rapide au plus lourd (méthode complète avec diagramme de décision dans mon [writeup Leviathan]({% post_url 2026-08-01-leviathan-overthewire %})) :
+
+| Étape | Outil | Sur Bandit (exemples) |
+|---|---|---|
+| 0 | `ls -la` + `file` | `-rwsr-x--- bandit20 bandit19` → on héritera des droits de `bandit20` ; `file` donne l'architecture (32/64 bits) |
+| 1 | `ltrace` | `ltrace ./suconnect 1234` → voir la comparaison `strcmp` avec le mot de passe stocké |
+| 2 | `strace -e trace=…` | suivre les `execve`/`openat`/`connect` : que fait le binaire au niveau noyau ? |
+| 3 | `strings` | chercher mots de passe en clair, chemins, commandes cachées dans le binaire |
+| 4 | `objdump` / `readelf` | désassembler pour lire la vraie logique si les traces ne suffisent pas |
+| 5 | `gdb` | dernier recours : exécution pas à pas, registres, mémoire |
+
+Sur Bandit, les binaires SUID sont volontairement **simples** — la méthode s'arrête presque toujours aux étapes 0-1 :
+
+- **`bandit20-do`** (19→20) ne fait qu'exécuter la commande qu'on lui donne → l'étape 0 (`ls -la`) suffit, pas besoin de creuser le binaire
+- **`suconnect`** (20→21) ouvre un socket et compare une chaîne → `ltrace` révèle la comparaison ; le vrai travail est de monter le serveur `nc` à côté
+- **`bandit24`** (23→24) passe par un **cron** : le « piège » n'est pas dans un binaire setuid mais dans un script exécuté périodiquement — d'où l'importance de regarder `cron` quand il n'y a pas de binaire SUID évident
+- **`bandit27-do`** (26→27) répète le schéma de `bandit20-do` : la vraie difficulté du niveau est *avant*, dans l'exploit `more`/`vi`
+
+Principe directeur : **du moins cher au plus cher**. On commence par l'observation la plus rapide (`ls -la`, `ltrace`), et on ne monte en puissance (`objdump`, `gdb`) que si les étapes simples ne suffisent pas.
+
 ### 📌 À retenir
 
 - SUID (`s`) = le programme agit avec les droits de son propriétaire
