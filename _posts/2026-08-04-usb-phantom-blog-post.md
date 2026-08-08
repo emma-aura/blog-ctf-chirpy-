@@ -1,5 +1,6 @@
 ---
 title: "USB-Phantom — construire un vecteur d'attaque USB (PoC éducatif)"
+description: "USB-Phantom : PoC éducatif d'attaque USB (USB drop attack) — agent Python, serveur C2, reverse shell et exfiltration de fichiers. Code et explications."
 date: 2026-08-04 08:00:00 +0200
 categories: [Outils, Red Team]
 tags: [usb, red-team, c2, reverse-shell, python, nodejs, socket.io, exfiltration, poc, sécurité-offensive]

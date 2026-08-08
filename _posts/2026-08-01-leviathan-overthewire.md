@@ -1,5 +1,6 @@
 ---
 title: "Solution du Wargame Leviathan - OverTheWire"
+description: "Writeup du wargame Leviathan d'OverTheWire : reverse engineering, ltrace, strace, binaires setuid et liens symboliques, niveau par niveau. En français."
 date: 2026-08-01 12:00:00 +0100
 categories: [CTF, Wargame]
 tags: [leviathan, reverse, ltrace, linux, overthewire]

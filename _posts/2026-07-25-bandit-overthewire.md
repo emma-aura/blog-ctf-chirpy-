@@ -1,5 +1,6 @@
 ---
 title: "Solution du Wargame Bandit - OverTheWire"
+description: "Writeup complet du wargame Bandit d'OverTheWire : tous les niveaux expliqués pas à pas, commandes Linux, SSH, SUID et escalade de privilèges. En français."
 date: 2026-07-25 12:00:00 +0100
 categories: [CTF, Wargame]
 tags: [bandit, ssh, linux, overthewire]

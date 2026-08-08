@@ -1,5 +1,6 @@
 ---
 title: "Wargames OverTheWire — Récapitulatif & Progression"
+description: "Ma progression sur les wargames OverTheWire (Bandit, Leviathan) : index des writeups, méthodes et outils appris en cybersécurité Linux."
 date: 2026-08-03 00:00:00 +0100
 categories: [CTF, Wargame]
 tags: [overthewire, wargame, linux, bandit, leviathan, reverse, progression]
