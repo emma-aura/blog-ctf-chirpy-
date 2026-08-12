@@ -1,193 +1,154 @@
 ---
 title: "StegoRSA — picoCTF : la clé privée RSA cachée dans une image"
-description: "Writeup du challenge StegoRSA (picoCTF, Cryptographie, Facile) : inspection des métadonnées JPEG avec file et exiftool, reconnaissance du format hexadécimal grâce au détecteur de code de dcode.fr, reconstitution de la clé privée RSA et décryptage du flag avec OpenSSL."
-date: 2026-08-10 15:00:00 +0100
-categories: [CTF, Cryptographie]
-tags: [picoctf, ctf, crypto, rsa, steganographie, dcode, exiftool, métadonnées, openssl, writeup]
+description: "Writeup du challenge StegoRSA (picoCTF, Cryptographie, Facile) : inspection des métadonnées JPEG avec file et exiftool, reconnaissance du format hexadécimal avec dCode, reconstitution de la clé privée RSA et déchiffrement du flag avec OpenSSL."
+date: 2026-08-11 15:00:00 +0100
+categories: [CTF, picoCTF]
+tags: [crypto, rsa, steganographie, forensics, exiftool, openssl]
 image:
-  path: /assets/img/posts/stegorsa-challenge.png
+  path: /assets/img/posts/StegoRSA.png
   alt: Challenge StegoRSA sur picoCTF
 ---
 
-> Après les wargames (Bandit, Leviathan) et le reverse (RE101), voici mon premier **writeup picoCTF** ! **StegoRSA** est un challenge de **cryptographie** de niveau **facile** qui mélange deux mondes : la **stéganographie** (dissimuler une information dans un fichier image) et le **RSA** (déchiffrer un message). L'énoncé est un bijou de simplicité : le message est chiffré, la clé publique a disparu… mais quelqu'un a été **négligent avec la clé privée**. À nous de la retrouver et de déchiffrer le message !
-{: .prompt-tip }
-
----
+> Après les wargames (Bandit, Leviathan) et le reverse (RE101), voici un nouveau writeup picoCTF ! **StegoRSA** est un challenge de **cryptographie** de niveau **facile** qui mélange deux mondes : la **stéganographie** (dissimuler une information dans un fichier image) et le **RSA** (déchiffrer un message). L'énoncé est un bijou de simplicité : le message est chiffré, la clé publique a disparu… mais quelqu'un a été **négligent avec la clé privée**. À nous de la retrouver et de déchiffrer le message !
 
 ## 🎯 En bref
 
 | Infos | Détails |
-|---|---|
-| **Challenge** | StegoRSA |
-| **Plateforme** | [picoCTF](https://picoctf.org) |
+| ----- | ------- |
 | **Catégorie** | Cryptographie |
-| **Difficulté** | Facile |
-| **Auteur** | Yahaya Meddy (F3) |
-| **Fichiers fournis** | `image.jpg` (l'image piégée) + `flag.enc` (le message chiffré) |
-| **Méthode** | Métadonnées (`file` / `exiftool`) → reconnaissance du format (dcode.fr) → hex → clé PEM → `openssl pkeyutl` |
+| **Difficulté** | 🟢 Facile |
+| **Plateforme** | picoCTF 2026 |
+| **Auteur du challenge** | Yahaya Meddy |
+| **Outils utilisés** | `file`, `exiftool`, [dcode.fr](https://www.dcode.fr/), `openssl` |
+| **Fichiers fournis** | `flag.enc`, `image.jpg` |
 
-**Ce qu'on apprend ici** : la **stéganographie ≠ le chiffrement**. Cacher une clé dans une image ne la protège pas : dès qu'on pense à regarder — surtout les **métadonnées** — tout tombe. Et que l'**hexadécimal est partout** : il suffit de savoir le reconnaître pour reconstituer un fichier.
+## 📜 Énoncé
 
----
+> A message has been encrypted using RSA. The public key is gone… but someone might have been careless with the private key. Can you recover it and decrypt the message?
+>
+> **Hints :**
+> 1. Metadata can tell you more than you expect.
+> 2. Hex can be turned back into a key file.
 
-## 📜 Le challenge
+On récupère deux fichiers : un message chiffré `flag.enc`, et une image `image.jpg`. Les indices sont clairs — la solution se cache dans les **métadonnées** de l'image, sous une forme **hexadécimale**.
 
-La description officielle :
+## 🔍 Découvertes
 
-> *A message has been encrypted using RSA. The public key is gone... but someone might have been careless with the private key. Can you recover it and decrypt the message?*
+### Étape 1 — Identifier le type de fichier
 
-Deux indices accompagnent le challenge — et ils disent presque tout :
-
-1. **Metadata can tell you more than you expect.** — *Les métadonnées en disent plus qu'on ne le croit.*
-2. **Hex can be turned back into a key file.** — *L'hexadécimal peut redevenir un fichier clé.*
-
-Deux fichiers à télécharger :
-- `image.jpg` — une image 512×512, à première vue banale
-- `flag.enc` — le flag chiffré en RSA
-
-![La page du challenge StegoRSA sur picoCTF](/assets/img/posts/stegorsa-challenge.png){: .shadow .rounded-10 }
-
----
-
-## 🔍 Étape 1 — La découverte
-
-Premier réflexe : examiner les fichiers fournis. Le nom du challenge est déjà un indice en soi : **Stego**RSA → stéganographie + RSA. L'image est le seul fichier « à inspecter », le `flag.enc` étant le message à déchiffrer une fois la clé retrouvée.
-
-![La découverte : le challenge et ses fichiers](/assets/img/posts/stegorsa-decouverte.png){: .shadow .rounded-10 }
-
----
-
-## 🕵️ Étape 2 — L'inspection des métadonnées
-
-L'indice 1 parle de **métadonnées** : direction les outils d'analyse de fichiers. `file` donne déjà un premier aperçu, et `exiftool` (l'outil de référence pour lire les métadonnées) révèle un détail intéressant : un champ **Comment** rempli d'une longue chaîne hexadécimale !
+Premier réflexe sur un challenge de stégo/forensics : vérifier ce qu'on a vraiment entre les mains avec `file`.
 
 ```bash
+┌──(emma_aura㉿kali)-[~/Téléchargements]
 └─$ file image.jpg
-image.jpg: JPEG image data, JFIF standard 1.01, ..., comment: "2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a4d49494576514942...", baseline, precision 8, 512x512, components 3
+image.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: "2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a4d494945765149424144414e42676b71686b6947397730424151454641415343424b63", baseline, precision 8, 512x512, components 3
+```
 
+Le champ **`comment`** attire immédiatement l'œil : une longue chaîne hexadécimale est planquée directement dans les métadonnées JPEG. C'est exactement ce que le premier indice ("*metadata can tell you more than you expect*") laissait présager.
+
+### Étape 2 — Extraire la métadonnée complète
+
+Le `comment` renvoyé par `file` est tronqué. Pour récupérer la chaîne hexadécimale en entier, on passe par `exiftool`, plus complet pour l'extraction de métadonnées.
+
+```bash
+┌──(emma_aura㉿kali)-[~/Téléchargements]
 └─$ exiftool image.jpg
-File Type                       : JPEG
+...
+Comment                         : 2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a4d4949...
 Image Width                     : 512
 Image Height                    : 512
-Comment                         : 2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a4d49494576514942...
+...
 ```
 
-Un champ `Comment` JPEG rempli de caractères `2d`, `42`, `45`… ce n'est pas anodin : les métadonnées cachent quelque chose.
+Cette fois on récupère la totalité de la chaîne hex, bien plus longue — un signe qu'il s'agit probablement d'un bloc de données structuré plutôt que d'un simple commentaire texte.
 
----
+### Étape 3 — Convertir l'hexadécimal
 
-## 🧩 Étape 3 — La reconnaissance du format : le détecteur de code de dcode.fr
+Deuxième indice du challenge : "*hex can be turned back into a key file*". Direction [dcode.fr](https://www.dcode.fr/) pour convertir cette chaîne hexadécimale en texte lisible via le **convertisseur ASCII**.
 
-Je me retrouve avec une chaîne de caractères inconnue — comment savoir ce que c'est ? C'est là qu'intervient le [détecteur de code (cipher identifier) de dcode.fr](https://www.dcode.fr/cipher-identifier) : on lui colle la chaîne, et il identifie le type de chiffrement/encodage.
+![Conversion de l'hexadécimal en ASCII sur dCode](/assets/img/posts/Decouverte.png)
+_La chaîne hexadécimale extraite se décode directement en clé privée PEM_
 
-![Le détecteur de code de dcode.fr](/assets/img/posts/stegorsa-detecteur.png){: .shadow .rounded-10 }
+Le résultat est sans appel : la chaîne hexadécimale n'est autre que l'encodage d'une **clé privée RSA au format PEM**, en clair :
 
-Verdict : de l'**hexadécimal** ! Et le début de la chaîne vaut le coup d'œil :
-
-```text
-2d2d2d2d2d 42 45 47 49 4e 20 50 52 49 56 41 54 45 20 4b 45 59 2d2d2d2d2d 0a
 ```
-
-En ASCII, `2d` = le tiret `-`, `42` = `B`, `45` = `E`, `47` = `G`, `49` = `I`, `4e` = `N`, `0a` = retour à la ligne… Autrement dit : **`-----BEGIN PRIVATE KEY-----\n`**. La clé privée RSA est là, en clair, juste encodée en hexadécimal !
-
-![Le résultat du détecteur : la chaîne hexadécimale identifiée](/assets/img/posts/stegorsa-resultat.png){: .shadow .rounded-10 }
-
-> 💡 Le décodage des premiers octets suffit presque toujours à deviner le format d'un fichier caché : `2d 2d 2d` = `---`, `50 4b` = `PK` (zip), `1f 8b` = gzip… — le réflexe *magic bytes* qu'on avait déjà vu dans [Bandit]({% post_url 2026-07-25-bandit-overthewire %}).
-{: .prompt-info }
-
----
-
-## 🔑 Étape 4 — De l'hex au fichier clé (PEM)
-
-Deuxième indice : *« Hex can be turned back into a key file. »* Il suffit de convertir l'hexadécimal en binaire pour reconstituer la clé au format PEM :
-
-```bash
-echo "2d2d2d2d2d424547494e2050524956415445204b45592d2d2d2d2d0a..." | xxd -r -p > cle.pem
-cat cle.pem
-```
-
-```text
 -----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCOdn3AYDcumr2w
 N/Oo6AOJoESl6RPNyei+zev9CkXAnrvkAaB9ih9Y/93CB8akMbzWVgZ2P7iW0DVc
-...
+dZPY9YVehK3YxEb9mMe1nGGXJkO6enaosnw0D7TMDRzB5xtEF7CirTRJCYv1JUaF
+HwSrXA6OVr2IrFQ2r+qw8Co9P0TRSIIV4fVk9XP0Pq3F2tDS8mQVVhC1K//w+lEa
+h0UEk7vJvmC6yohDgTVQ4bANfPsTEBLn5EeFJ3p4sz3/I+cCDnryoSrjlLdK2f5x
+LOwl2ivzRtTrJX2SWfmaBPgI2YUljBIKQJVBCA9RhuWm/zS9UZCH8rxprF6hhxZz
+oq7D1Vq/AgMBAAECggEAFk/IchCfk9T4UFjy+EkeBLftCG7wgxJUOU3W39J0Ci7S
+DmuSzxaKwk2QVYsSOTTw9kCS0oI4TqZdNRXVCe2p7Zup/oD+/UioPnE3d4yuns3/
+N3x8p0qubia/kj63rnpnV5L41VeBa+timAa7nHrWbMR4+qbCqa3ze7KhauY1yPDu
+SC3YBNhtz4XoubwMWg4ViW8KOpf0Lu18DwnJ8qveJm2S0qUptyDn1Xs6It7MTj+4
+/k2XJBlh691XZqB4xLcivyyqI8VWLKrwO33sTJSfGpVIaN3iGCv55k42OKOs0VB2
+QZRPYkfGBBr0eZrYGkqC3mgLcbiHbbyZFDlr2AKSAQKBgQDJNq5pcr6O4yXOgmSw
+0nYx2ZyM+THEEDtLU6Qwmd6zwgPEUn9HxtGFssLXdf1XL1ixAzDIaAmpnBWIIled
+ocwUf2d99K3tLklR+j2XijME76RmmCrj1qKDw/bj/C9EFTBJYeL3VdxlDk5PnU8d
+Owrs8rFHPg2/giqmaxHterBEXwKBgQC1QKt17jZt8nnWsUjg/zopRDC+WyZcbfk2
+JoRG/J6pyy2CqYqYLJvCNuLL3oJBMdUhsXToOaL0DFKa059oLJU4M2O+ey+R/jVd
+fSqYyR+T+ovPJLrgN3mNuR6547awR0w7I2nDqlf0MT0pLdH4QPayhmrqDWQhQscE
+dwtEJKuFoQKBgQCeBlHoAvPhqEdy7jlCHagx8mPe237YKp9Gw4O5n76lkoP+1YOc
+zWqUBBa9vK6goFCZhJX1bq/YAvtuFPqWlBGBL6YJ5/YIxkdTGKLyttjm0YZeBLf6
+hADSVz85Qj+kyrdHipcEBOy4eQnLwRH3NP2ZpejQuM13UDVKyeAkkCyLJQKBgHUP
+0m11L5QtEcG2eIJQdOjoEK8wwYLayCTQFYifaX3yKm+EPm3wCZ0Sw8G18NxYafW7
+3eyKJROHzeYPHZoziSBmGFqSxvN8gkziJRvOceWp4JgleciMK6Z71DtstbX+Jl7f
+jVSA9RNSpdStsjmrA2nj5LNLeMr+jPj2RcF6CYlhAoGAcuHCo4anU+DY2eQSTzME
+EL+dbsK2IXdp5fGwMKhESvU5PxAJ/jlOU3i53Nmdiow47nsNMFfrdzTk4hIzwZ8V
+2CtB4RWMeJOUmZAGWPFnKPYFdsSF0Wi7PLSOACR2N90XPcfcZUDTPJbCr1QoCK1U
+sdKl3MsrZH9mq+CYlnU8Ov8=
 -----END PRIVATE KEY-----
 ```
 
-> 💡 Équivalent Python, même conversion en une ligne : `bytes.fromhex(hex_data).decode()`.
-{: .prompt-info }
+> 💡 Petit aparté sur l'outil utilisé : dCode propose aussi un **détecteur de chiffrement automatique**, capable d'identifier plus de 250 types de chiffrements/encodages à partir d'un texte donné. Pratique quand on n'est pas sûr à 100 % du format en face de soi.
 
----
+![Page des outils de cryptographie et de reconnaissance de chiffrement sur dCode](/assets/img/posts/Detecteur.png)
+_Le détecteur de chiffrement de dCode_
 
-## 🔓 Étape 5 — Décryptage RSA du flag
+![Résultat du détecteur : le format Hexadécimal (Base 16) est suggéré en priorité](/assets/img/posts/resultat_du_detecteur.png)
+_L'analyseur confirme qu'il s'agit bien d'hexadécimal_
 
-Clé privée en main, le déchiffrement de `flag.enc` devient une formalité. `flag.enc` fait ≈ 256 octets (un bloc RSA 2048 bits) : c'est un déchiffrement RSA « brut », parfait pour `openssl pkeyutl` :
+### Étape 4 — Reconstituer le fichier de clé
+
+Une fois le contenu PEM récupéré, il ne reste plus qu'à le sauvegarder tel quel dans un fichier local.
 
 ```bash
-└─$ openssl pkeyutl -decrypt -in flag.enc -inkey cle.pem
+┌──(emma_aura㉿kali)-[~/Téléchargements]
+└─$ nano cle.pivate
+```
+
+*(on colle le bloc `-----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----` récupéré à l'étape précédente, puis on sauvegarde)*
+
+### Étape 5 — Déchiffrer le message
+
+Il ne reste plus qu'à utiliser cette clé privée fraîchement reconstituée pour déchiffrer `flag.enc` avec `openssl` :
+
+```bash
+┌──(emma_aura㉿kali)-[~/Téléchargements]
+└─$ openssl pkeyutl -decrypt -in flag.enc -inkey cle.pivate
 picoCTF{rs4_k3y_1n_1mg_4eedd678}
 ```
 
-> 😄 Petit détail du live : mon fichier clé s'appelait `cle.pivate` (un `r` oublié dans `nano`)… et ça marche quand même !
-{: .prompt-info }
+🏁 **Flag obtenu : `picoCTF{rs4_k3y_1n_1mg_4eedd678}`**
 
-Équivalent en Python (bibliothèque `cryptography`) :
+## 🛠️ Commandes clés
 
-```python
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from cryptography.hazmat.primitives.asymmetric import padding
+| Commande | Rôle |
+| -------- | ---- |
+| `file image.jpg` | Identifier le type de fichier et repérer un premier indice dans les métadonnées |
+| `exiftool image.jpg` | Extraire l'intégralité des métadonnées, y compris les champs tronqués par `file` |
+| Convertisseur ASCII / détecteur — [dcode.fr](https://www.dcode.fr/) | Décoder la chaîne hexadécimale et confirmer le format identifié |
+| `nano cle.pivate` | Reconstituer le fichier de clé privée PEM à partir du texte décodé |
+| `openssl pkeyutl -decrypt -in flag.enc -inkey cle.pivate` | Déchiffrer le message avec la clé privée RSA récupérée |
 
-with open("cle.pem", "rb") as f:
-    key = load_pem_private_key(f.read(), password=None)
+## 🧠 Ce que je retiens
 
-with open("flag.enc", "rb") as f:
-    ciphertext = f.read()
-
-print(key.decrypt(ciphertext, padding.PKCS1v15()).decode())
-```
-
----
-
-## 🏁 Le flag
-
-```text
-picoCTF{rs4_k3y_1n_1mg_4eedd678}
-```
-
-Le flag confirme tout le mécanisme : **rs4_k3y_1n_1mg** — *« RSA key in image »*. La clé était bien cachée dans l'image !
+- Les métadonnées d'un fichier (EXIF, JFIF, PDF, etc.) sont un vecteur de dissimulation d'information classique en stéganographie/forensics — toujours vérifier avec `file` **et** `exiftool`, car `file` tronque parfois les champs longs.
+- Une clé RSA (privée ou publique) peut être encodée sous plusieurs formes (hex, base64…) : savoir reconnaître un format à l'œil (ou via un détecteur automatique) fait gagner un temps précieux.
+- Une fois la clé privée récupérée, `openssl pkeyutl -decrypt` suffit à déchiffrer un message RSA sans avoir besoin d'écrire la moindre ligne de code.
 
 ---
 
-## 🧠 Ce que j'ai appris
-
-| Leçon | Détail |
-|---|---|
-| **Les métadonnées sont le premier endroit à regarder** | `file` puis `exiftool` : le champ *Comment* d'un JPEG peut contenir n'importe quoi — en forensics comme en CTF, c'est le tout premier réflexe |
-| **Stéganographie ≠ chiffrement** | Cacher une clé dans une image ne la protège pas : la stéganographie **dissimule**, elle ne chiffre pas. Une fois qu'on sait où regarder, le secret tombe |
-| **Reconnaître l'encodage avant de décoder** | Face à une chaîne inconnue, le [cipher identifier de dcode.fr](https://www.dcode.fr/cipher-identifier) évite de deviner au hasard : on identifie le format (hex, base64…), puis on décode |
-| **Reconstituer un fichier depuis l'hex** | `xxd -r -p` (ou `bytes.fromhex` en Python) : les *magic bytes* décodés en ASCII révèlent le format du fichier caché (`2d 2d 2d` = `---`…) |
-| **Le RSA brut se déchiffre avec `openssl pkeyutl`** | Pour un message chiffré « directement » en RSA (pas via un format conteneur), `openssl pkeyutl -decrypt -inkey cle.pem -in flag.enc` est l'outil exact |
-
-### 🔬 Pour aller plus loin : où cache-t-on des données dans une image ?
-
-| Méthode | Principe | Comment la détecter |
-|---|---|---|
-| **Métadonnées (EXIF / Comment)** | Champ texte libre dans l'en-tête du fichier — *la méthode de ce challenge* | `file`, `exiftool` |
-| **LSB** (bits de poids faible) | On modifie le dernier bit de chaque pixel : invisible à l'œil | `zsteg`, analyse statistique des couleurs |
-| **Append (fin de fichier)** | On colle des données après la fin de l'image réelle | `binwalk`, comparaison de tailles |
-| **Steganography software** | steghide, outguess… (souvent avec passphrase) | `steghide info`, `steghide extract` |
-
-La vraie leçon de sécurité : **ne jamais mettre une clé privée dans un fichier partagé** — même « cachée », elle sera retrouvée par n'importe quel outil d'analyse. Une clé privée ne doit exister que là où personne d'autre ne peut la lire.
-
----
-
-## 📚 Ressources liées
-
-- [Mon récap picoCTF]({% post_url 2026-08-10-picoctf-writeups %}) — l'index de ma progression picoCTF, classé par catégorie
-- [picoCTF](https://picoctf.org) — la plateforme de challenges
-- [dcode.fr — cipher identifier (détecteur de code)](https://www.dcode.fr/cipher-identifier) — reconnaître un chiffrement/encodage
-- [dcode.fr — déchiffreur RSA](https://www.dcode.fr/rsa-cipher) — alternative en ligne pour le décryptage
-- [Mon récap OverTheWire]({% post_url 2026-08-03-overthewire-wargames-recapitulatif %}) — le contexte de ma progression
-- [Mon RE101 MalwareUnicorn]({% post_url 2026-08-03-re101-malwareunicorn %}) — la méthode d'analyse, transposable aux fichiers de CTF
-
-*Prochaines étapes : des challenges crypto plus « purs » (attaques RSA — Wiener, petit exposant…), et pourquoi pas d'autres writeups picoCTF. Stay tuned !* 🚀
+*Prochain writeup bientôt — n'hésite pas à me suivre pour la suite de la progression picoCTF !*
