@@ -35,7 +35,6 @@ image:
 >
 > **Hint :** How do you specify your Git username and email?
 
-![Challenge MyGit sur picoCTF](/assets/img/posts/MyGit.png)
 _Le challenge sur la plateforme picoCTF_
 
 L'indice est presque une réponse déguisée : le challenge tourne clairement autour de la façon dont on **déclare son identité** sur un commit Git — pas autour d'une faille technique complexe.
