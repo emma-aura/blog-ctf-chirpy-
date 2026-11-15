@@ -20,7 +20,7 @@ image:
 | Infos | Détails |
 |---|---|
 | **Plateforme** | [picoCTF](https://picoctf.org) |
-| **Challenges résolus** | 4 (StegoRSA, Shared Secrets, Undo, MyGit) |
+| **Challenges résolus** | 5 (StegoRSA, Shared Secrets, Undo, MyGit, bytemancy 1) |
 | **Principe** | Chaque challenge = une entrée classée par catégorie |
 | **Format** | Résumé + lien vers le writeup complet (avec photos de résolution) |
 
@@ -99,6 +99,23 @@ image:
 
 **Flag** : `picoCTF{1mp3rs0n4t4_g17_345y_02a39618}`
 
+**bytemancy 1** — 🟢 Facile — résolu le 12/08/2026
+
+> [**Writeup complet : bytemancy 1 — envoyer 1751 fois le caractère ASCII 101**]({% post_url 2026-08-12-bytemancy-1-picoctf %})
+
+**Objectif** : un service distant demande d'envoyer **1751 fois le caractère ASCII décimal 101** (soit la lettre `e`), collé sans espace — le piège étant de comprendre qu'il faut envoyer le **caractère** correspondant au code, pas le texte `101`.
+
+| Étape | Ce qu'on fait |
+|-------|--------------|
+| Lecture | `nc foggy-cliff.picoctf.net 59581` → le service affiche sa consigne : *"Send me ASCII DECIMAL 101 1751 times"* |
+| Décodage | `chr(101)` = `e` — le code ASCII 101 représente la lettre `e` minuscule |
+| Génération | `python3 -c "print('e'*1751)"` — impossible à taper à la main, on génère la chaîne avec Python |
+| Envoi | Copier-coller dans le prompt, ou mieux : `python3 -c '...' \| nc host port` en une seule ligne |
+
+**Compétences** : table ASCII (code décimal → caractère), génération de chaînes en Python (`-c`, multiplication de chaîne), netcat, pipe (`\|`) pour chaîner génération et envoi réseau.
+
+**Flag** : `picoCTF{h0w_m4ny_e's???_7dbc095c}`
+
 ### 🕵️ Forensics
 
 *(pas encore de challenge résolu — à venir)*
@@ -123,7 +140,7 @@ Chaque nouveau challenge résolu viendra **s'ajouter dans sa catégorie** — pa
 
 ```text
 🔐 Cryptographie : StegoRSA ✅, Shared Secrets ✅
-🛠️ General Skills : Undo ✅, MyGit ✅
+🛠️ General Skills : Undo ✅, MyGit ✅, bytemancy 1 ✅
 🕵️ Forensics      : à venir ⬜
 🌐 Web            : à venir ⬜
 ⚙️ Reverse        : à venir ⬜
@@ -147,6 +164,8 @@ Chaque nouveau challenge résolu viendra **s'ajouter dans sa catégorie** — pa
 | **ROT13** | Auto-inverse (13 + 13 = 26)… à condition de traiter **minuscules et majuscules** : `tr 'a-zA-Z' 'n-za-mN-ZA-M'` |
 | **Git** | L'auteur d'un commit (`user.name`/`user.email`) est une métadonnée **déclarative** : se déclarer `root` suffit — l'authentification réelle (SSH, token) est indépendante de ce champ |
 | **Conception serveur** | Ne jamais faire confiance à une donnée fournie par le client (auteur du commit, en-têtes HTTP…) comme source de vérité pour une autorisation |
+| **ASCII** | Un code ASCII décimal (ex. `101`) est un **nombre** qui représente un caractère (`e`) — ne pas confondre le code et le caractère dans les énoncés |
+| **Pipe / automatisation** | `python3 -c "..." \| nc host port` génère la donnée côté client puis l'envoie en une seule ligne — un service `nc` n'exécute jamais de commandes tapées dans son prompt |
 
 ---
 
@@ -157,6 +176,7 @@ Chaque nouveau challenge résolu viendra **s'ajouter dans sa catégorie** — pa
 - [Writeup Shared Secrets]({% post_url 2026-08-12-shared-secrets-picoctf %}) — la résolution complète en détail
 - [Writeup Undo]({% post_url 2026-08-12-undo-picoctf %}) — la résolution complète en détail
 - [Writeup MyGit]({% post_url 2026-08-12-mygit-picoctf %}) — la résolution complète en détail
+- [Writeup bytemancy 1]({% post_url 2026-08-12-bytemancy-1-picoctf %}) — la résolution complète en détail
 - [Mon récap OverTheWire]({% post_url 2026-08-03-overthewire-wargames-recapitulatif %}) — la même logique de progression, appliquée aux wargames
 - [Ma page Ressources]({% link _tabs/ressources.md %}) — les outils et sites utiles
 
