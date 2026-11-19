@@ -7,6 +7,23 @@ order: 5
 > Une collection de ressources soigneusement sélectionnées dans l'univers de la cybersécurité offensive, du CTF et du reverse engineering. Cette page évolue au fil de mes découvertes.
 {: .prompt-info }
 
+## 🧭 Comment lire cette page
+
+Chaque ligne suit la même logique : **ce que c'est**, puis **quand / pourquoi l'ouvrir** (avec les commandes ou options clés quand elles existent). Le but n'est pas de tout lire, mais de choisir le bon outil en quelques secondes.
+{: .prompt-tip }
+
+| Si je veux... | Commence par |
+|---|---|
+| Comprendre un binaire ou un malware | Dogbolt, Reverse.zip, MalwareUnicorn, OST2 |
+| Reconnaître et cartographier une cible (réseau, web) | Top 1 000 ports Nmap, ffuf, Gobuster, **EyeWitness** |
+| Auditer un site WordPress | WPScan |
+| Passer d'un shell bancal à un vrai TTY | Reverse Shell Cheat Sheet, ropnop, Spawn TTY Shell |
+| Élever mes privilèges sur Linux | LinPEAS, linux-exploit-suggester, lse, pspy |
+| Élever mes privilèges sur Windows | WinPEAS, PrivescCheck, WES-NG |
+| Trouver un exploit / un PoC pour une CVE | Exploit-DB, Rapid7 DB, Vulnerability-Lab |
+| Monter un C2 / faire du red team | Sliver (+ GUI), Havoc, Empire, Starkiller |
+| Suivre des writeups et la veille | 0xdf, IppSec, HackTricks, The DFIR Report, PortSwigger Research, ce blog 😉 |
+
 ---
 
 ## 🔬 Reverse Engineering & Malware
@@ -15,6 +32,7 @@ order: 5
 |---|---|---|
 | Reverse.zip | [https://reverse.zip/](https://reverse.zip/) | Plateforme complète de reverse engineering |
 | Dogbolt | [https://dogbolt.org/](https://dogbolt.org/) | Compare plusieurs décompilateurs (Ghidra, IDA, Binary Ninja...) sur un même binaire |
+| Binary Ninja | [https://binary.ninja/](https://binary.ninja/) | Suite de reverse engineering (décompilateur, désassembleur, débogueur) pensée pour l'automatisation : API C++/Python/Rust, plugins, visualisation du control flow et des piles, Time Travel Debugging, triage rapide — essai gratuit et édition Cloud |
 | MalwareUnicorn Workshops | [https://malwareunicorn.org/#/workshops](https://malwareunicorn.org/#/workshops) | Ateliers de reverse engineering et d'analyse de malware par Amanda Rousseau (MalwareUnicorn), dont le célèbre « Reverse Engineering Malware 101 » |
 | OpenSecurityTraining2 | [https://p.ost2.fyi/courses](https://p.ost2.fyi/courses) | Formations gratuites en sécurité : reverse engineering, exploitation binaire, architecture CPU... |
 
@@ -57,7 +75,9 @@ order: 5
 | Ressource | Lien | Description |
 |---|---|---|
 | ffuf | [https://github.com/ffuf/ffuf](https://github.com/ffuf/ffuf) | Fuzzer web ultra-rapide écrit en Go : découverte de contenu/dossiers, de paramètres GET/POST, de vhosts (`-H "Host: FUZZ."`) et de valeurs, avec filtres de taille/mots/lignes (`-fs`, `-fw`, `-fl`), export JSON/HTML (`-of`), recursion, rate limiting et modes multi-wordlists — le compagnon de choix des wordlists SecLists |
+| WPScan | [https://github.com/wpscanteam/wpscan/](https://github.com/wpscanteam/wpscan/) | Scanner de vulnérabilités WordPress (Ruby) : détection de version, thèmes et plugins installés avec leurs CVE (alimentées par la base WPScan), énumération des utilisateurs (`-e u`), des plugins vulnérables (`-e vp`, `-e ap`), bruteforce de mots de passe (`-P`) et de XML-RPC, détection de `wp-config` backups et de fichiers sensibles — `wpscan --url https://cible --enumerate vp,u --api-token XXX` |
 | Gobuster | [https://github.com/OJ/gobuster](https://github.com/OJ/gobuster) | Outil de brute force écrit en Go avec plusieurs modes : `dir` (dossiers/fichiers, extensions via `-x`), `dns` (sous-domaines), `vhost` (virtual hosts) et `fuzz`, plus la découverte de buckets cloud (S3, GCS) — options utiles : `-t` pour les threads, `-b`/`-s` pour filtrer les codes de statut, cookies et headers custom (`-c`, `-H`) |
+| EyeWitness (RedSiege) | [https://github.com/RedSiege/EyeWitness](https://github.com/RedSiege/EyeWitness) | **À quoi ça sert :** prendre des captures d'écran en masse de dizaines/centaines de services web d'un coup, avec les headers serveur et une détection de credentials par défaut — pour trier visuellement après un scan au lieu d'ouvrir chaque URL à la main. **Quand :** juste après un `nmap` ou un `ffuf` qui a révélé beaucoup de ports 80/443/8080... Entrées : liste d'URLs (`-f`), XML Nmap (`-x`), XML Nessus, ou une seule cible (`--single`) ; sortie : `report.html` cherchable et catégorisé (High Value, CMS, Network Devices) + captures, code source et `ew.db` pour reprendre un scan. Installation : `sudo ./setup/setup.sh` (venv Python isolé + Chromium), puis `source eyewitness-venv/bin/activate` et `python Python/EyeWitness.py -x nmap.xml -d sessions/`. Options utiles : `--threads`, `--timeout`, `--delay`/`--jitter`, `--proxy-ip`/`--proxy-port`, `--resume`, `--create-config` |
 | LinPEAS (PEASS-ng) | [https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS) | Script d'énumération pour l'élévation de privilèges sur Linux/Unix/macOS : recherche de SUID, capabilities, cron, credentials, kernel exploits... Version allégée (`linpeas_small.sh`) et build custom possibles — le passage obligé sur les machines HTB/THM |
 | WinPEAS (PEASS-ng) | [https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS) | Équivalent Windows de linPEAS : énumération des mauvaises configurations (services, permissions, credentials, tokens, Autologon...) pour l'élévation de privilèges. Dispo en .exe C#, .ps1 et .bat, exécutable depuis la mémoire |
 | PrivescCheck | [https://github.com/itm4n/PrivescCheck](https://github.com/itm4n/PrivescCheck) | Script PowerShell d'énumération des vulnérabilités et mauvaises configurations Windows : `Invoke-PrivescCheck` avec modes -Extended, -Audit, -Risky et rapports TXT/HTML |
@@ -77,6 +97,14 @@ order: 5
 | Process Monitor (Procmon) | [https://learn.microsoft.com/en-us/sysinternals/downloads/procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon) | Sysinternals : monitoring temps réel Windows du filesystem, du registre et de l'activité process/thread/DLL, avec filtres puissants et stack traces — l'outil de référence pour le debug et la chasse au malware |
 | UnPacker (JS) | [https://matthewfl.com/unPacker.html](https://matthewfl.com/unPacker.html) | Déobfuscateur JavaScript en ligne : colle du code packé (p.a.c.k.e.r de Dean Edwards, `eval(function(p,a,c,k,e,r)...)`) et récupère la version lisible — pratique en CTF web et pour analyser du JS suspect |
 
+## 🗃️ Bases de vulnérabilités & Exploits
+
+| Ressource | Lien | Description |
+|---|---|---|
+| Exploit-DB | [https://www.exploit-db.com/](https://www.exploit-db.com/) | La référence pour les PoC et exploits publics : base indexée par CVE, par produit/version, par type (web, local, remote, DoS) et par plateforme, avec le code source et les liens vers Metasploit — la première chose à fouiller quand un `searchsploit` remonte une piste |
+| Rapid7 Vulnerability & Exploit Database | [https://www.rapid7.com/db/](https://www.rapid7.com/db/) | Base de Rapid7 (éditeur de Metasploit/Nexpose) : fiches CVE détaillées avec CVSS, produits affectés, références et surtout les modules Metasploit associés (`msfconsole` → `search`, `use exploit/...`) — pratique pour passer d'une CVE à un module prêt à l'emploi |
+| Vulnerability-Lab | [https://www.vulnerability-lab.com/](https://www.vulnerability-lab.com/) | Archive indépendante de vulnérabilités et d'avis (web, IoT, mobile, logiciels) avec les détails techniques et les PoC, utile pour compléter la veille quand une CVE n'est pas encore publiée ou documentée ailleurs |
+
 ## 🎓 Formations & Tutoriels
 
 | Ressource | Lien | Description |
@@ -94,9 +122,22 @@ order: 5
 | ropnop blog | [https://blog.ropnop.com/](https://blog.ropnop.com/) | Blog de référence de Ronnie Flathers (ropnop) : post-exploitation Windows, active directory, Kerberos, upgrade de shells en TTY — très orienté pentest / red team |
 | 0xdf hacks stuff | [https://0xdf.gitlab.io/](https://0xdf.gitlab.io/) | Le blog de référence pour les writeups HTB : solutions détaillées pas à pas (AD, Windows, Linux, web), analyse de malware et home lab — souvent plusieurs chemins d'exploitation par machine |
 | IppSec | [https://ippsec.rocks/](https://ippsec.rocks/) | Moteur de recherche dans les vidéos YouTube d'IppSec : tape une commande, un outil ou un concept et retrouve le timestamp exact dans ses walkthroughs HTB (chaîne : youtube.com/@ippsec) |
+| The DFIR Report | [https://thedfirreport.com/](https://thedfirreport.com/) | Rapports d'intrusions réelles documentées de bout en bout (accès initial, mouvement latéral, ransomware) avec les artefacts, les commandes et les règles de détection — la référence pour comprendre une attaque réelle côté blue team |
+| Cisco Talos | [https://blog.talosintelligence.com/](https://blog.talosintelligence.com/) | Blog de l'équipe threat research de Cisco : avis sur les vulnérabilités critiques, analyses de malwares et de stealers, campagnes APT et infrastructures C2 (blockchain, dead drops...) |
+| Unit 42 (Palo Alto Networks) | [https://unit42.paloaltonetworks.com/](https://unit42.paloaltonetworks.com/) | Recherche et threat intelligence de Palo Alto Networks : groupes APT, malwares, ransomware et rapports d'incident détaillés, avec un focus croissant sur les risques liés à l'IA |
+| Securelist (Kaspersky) | [https://securelist.com/](https://securelist.com/) | Threat intelligence de Kaspersky : analyses de campagnes et de familles de malwares, rapports APT, statistiques et Kaspersky Security Bulletin |
+| Check Point Research | [https://research.checkpoint.com/](https://research.checkpoint.com/) | Recherche de Check Point : campagnes cybercriminelles, ransomware, exploitation de vulnérabilités, recherche IA, plus une encyclopédie publique des techniques d'évasion (anti-debug...) |
+| Google Project Zero | [https://projectzero.google/](https://projectzero.google/) | Recherche 0-day de l'équipe Project Zero de Google : exploitation mémoire, fuites d'ASLR, contournement de mitigations et bugs OS/navigateurs — technique et très détaillé |
+| PortSwigger Research | [https://portswigger.net/research](https://portswigger.net/research) | Recherche web de l'équipe PortSwigger (James Kettle, Gareth Heyes) : desync, XSS, CSP, SAML, smuggling... à l'origine de nombreuses techniques et du Top 10 des vulnérabilités web |
+| Trail of Bits Blog | [https://blog.trailofbits.com/](https://blog.trailofbits.com/) | Blog de la firme d'audit Trail of Bits : sécurité des compilateurs, crypto, fuzzing, analyse statique et recherches sur les protocoles (SAML, OIDC...) |
+| Binary Ninja Blog | [https://binary.ninja/blog/](https://binary.ninja/blog/) | Blog de l'équipe Vector 35 (éditeur de Binary Ninja) : techniques de reversing, anti-reverse et obfuscation, analyse de malwares (Cobalt Strike, Flare-On), écriture de plugins et d'architectures, annonces de releases |
+| calif.io - Java4Shell (writeup) | [https://calif.io/java4shell](https://calif.io/java4shell) | Writeup de recherche de Quang Luong sur Java4Shell (CVE-2026-114938) : corruption mémoire dans l'intrinsic Base64 x86-64 d'OpenJDK HotSpot, heap feng shui à distance pour transformer l'écriture hors bornes en fuite de heap puis en RCE — exploitation JVM de bout en bout |
 | H4ckYou Blog | [https://h4ckyou.github.io/](https://h4ckyou.github.io/) | Blog CTF & cybersécurité offensive |
+| ka3n1x | [https://ka3n1x.io/](https://ka3n1x.io/) | Blog de recherche en sécurité offensive (« Fear Of Being Average ! ») : analyses de CVE et recherches web détaillées (SPIP, regex, SQLi...), entre veille et writeups |
 | FoundHack | [https://foundhack.github.io/](https://foundhack.github.io/) | Blog CTF & hacking |
 | Stéphane Robert | [https://blog.stephane-robert.info/](https://blog.stephane-robert.info/) | Blog technique sur l'infrastructure, le cloud et la sécurité |
+| ZATAZ | [https://www.zataz.com/](https://www.zataz.com/) | Veille cybersécurité francophone depuis 1989 (Damien Bancal) : actualité de la cybercriminalité, fuites de données et alertes, orientée news |
+| UnderNews | [https://www.undernews.fr/](https://www.undernews.fr/) | Actualité francophone de la sécurité informatique et du cybercrime : alertes, malwares, phishing, techniques de pirates et veille quotidienne |
 | Writeup - Web Showcase | [https://web-showcase-inky.vercel.app/](https://web-showcase-inky.vercel.app/) | Writeup d'un aîné, ressource précieuse à conserver |
 | devl00p's infosec stuff | [https://devl00p.github.io/](https://devl00p.github.io/) | Blog de writeups CTF et exploitation binaire, source d'inspiration pour ce blog |
 | Kur0sh1r0's Portfolio | [https://kur0sh1r0.tech/](https://kur0sh1r0.tech/) | Portfolio de Fredmark Ivan "Kur0sh1ro" Dizon : security researcher, CTF player et bug bounty hunter, certifié HTB CPTS et membre d'A1SBERG — writeups CTF, projets offensive security et blog |
